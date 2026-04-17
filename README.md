@@ -227,13 +227,22 @@ go run ./go/cmd/demo --api http://localhost:3000 --button kitchen_button
 
 ## timer-switcher
 
-A Go TUI app that cycles through named timers based on button presses. Source lives in `apps/timer-switcher/`.
+A Fyne-based GUI app that displays configurable timers and cycles through them based on button presses or keyboard input. Source lives in `apps/timer-switcher/`.
+
+### Features
+
+- Displays N configurable timers (minimum 2) in a horizontal row
+- One timer is active at a time, highlighted with a cyan accent
+- Active timer counts up in `HH:MM:SS` format
+- Timer text scales dynamically with window resize
+- Click any timer card to switch to it
 
 ### Building
 
 ```bash
 cd apps/timer-switcher
-go build -o timer-switcher .
+./build.sh
+# or: go build -o timer-switcher .
 ```
 
 ### Usage
@@ -242,18 +251,19 @@ go build -o timer-switcher .
 # Single button — cycles through 3 timers
 ./timer-switcher --button kitchen_button
 
-# Multiple buttons
-# - If button count == timer count: each button maps to its corresponding timer (1:1 mode)
-# - Otherwise: all buttons cycle through the sequence (cycle mode)
-./timer-switcher --button btn1,btn2 --timers "Focus,Break,Long Break"
+# Multiple buttons with custom names
+./timer-switcher --button btn1,btn2,btn3 --timers "Player 1,Player 2,Player 3"
+
+# With debug logging
+./timer-switcher --button snzb-01p-01 --debug
 ```
 
 ### Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--button` | (required) | Comma-separated button IDs (e.g. `btn1` or `btn1,btn2,btn3`) |
-| `--timers` | `Timer 1,Timer 2,Timer 3` | Comma-separated timer names |
+| `--button` | (required) | Comma-separated button IDs (e.g. `snzb-01p-01` or `btn1,btn2,btn3`) |
+| `--timers` | `Timer 1,Timer 2,Timer 3` | Comma-separated timer names (minimum 2) |
 | `--api` | `http://localhost:3000` | button-hub API base URL |
 | `--debug` | `false` | Enable verbose event logging |
 
@@ -263,19 +273,41 @@ go build -o timer-switcher .
 
 | Key | Action |
 |-----|--------|
-| `SPACE` | Switch to the next timer |
-| `ENTER` | Reset the current timer |
-| `P` | Pause/resume the current timer |
+| `SPACE` | Switch to the next timer (cycles) |
+| `ENTER` | Reset the active timer to 00:00:00 |
+| `P` | Pause/resume the active timer |
 | `ESC` | Quit |
+
+**Mouse:**
+
+| Action | Effect |
+|--------|--------|
+| Click timer card | Switch to that timer |
 
 **Remote button:**
 
 | Action | Effect |
 |--------|--------|
-| Single press | Switch to next timer (cycle mode) or activate mapped timer (1:1 mode) |
-| Double press | Toggle pause/resume on the active timer |
+| Single press | Switch to next timer (cycle mode) or activate mapped timer (1:1 mode). If the mapped timer is already active, falls back to cycling. |
+| Double press | Pause/resume the active timer |
 
 **Paused state:** When paused, the active timer's time displays in amber and stops incrementing.
+
+## Tests
+
+### button-hub (Rust)
+```bash
+cd button-hub
+cargo test
+```
+**31 tests passing**
+
+### timer-switcher (Go)
+```bash
+cd apps/timer-switcher
+go test ./...
+```
+**23 tests passing**
 
 ## Event JSON Schema
 
