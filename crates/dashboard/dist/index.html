@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>button-hub Dashboard</title>
+  
+<script type="module">
+import init, * as bindings from '/dashboard/dashboard-d610e01372090faf.js';
+const wasm = await init({ module_or_path: '/dashboard/dashboard-d610e01372090faf_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+<link rel="modulepreload" href="/dashboard/dashboard-d610e01372090faf.js" crossorigin="anonymous" integrity="sha384-f1DWOF/kTO2xPyQUkrf4XIbVJ5ObnvdaWPB6lXa1aIaNBPMzOniTJvFuj7uc86hg"><link rel="preload" href="/dashboard/dashboard-d610e01372090faf_bg.wasm" crossorigin="anonymous" integrity="sha384-EENoKoHcJHkyAxS+u2WWRWcUIpOzi16Fx6J70fEvweo5RDBIj94yW17VigwhhUnE" as="fetch" type="application/wasm"></head>
+<body></body>
+</html>

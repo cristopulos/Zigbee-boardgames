@@ -1,0 +1,24 @@
+[build]
+target = "index.html"
+dist = "dist"
+public_url = "/dashboard/"
+
+[serve]
+port = 9090
+open = false
+
+[[proxy]]
+rewrite = "/api/"
+backend = "http://127.0.0.1:3000/api/"
+
+[[proxy]]
+rewrite = "/health"
+backend = "http://127.0.0.1:3000/health"
+
+[[proxy]]
+rewrite = "/buttons"
+backend = "http://127.0.0.1:3000/buttons"
+
+[[proxy]]
+rewrite = "/events"
+backend = "http://127.0.0.1:3000/events"

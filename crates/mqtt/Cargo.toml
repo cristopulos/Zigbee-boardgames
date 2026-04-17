@@ -1,0 +1,12 @@
+[package]
+name = "mqtt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rumqttc = "0.24"
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+tracing = "0.1"
+chrono = "0.4"
+button_core = { path = "../core" }
