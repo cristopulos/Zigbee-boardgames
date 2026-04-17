@@ -78,10 +78,15 @@ func main() {
 				switch e.Action {
 				case gobutton.ActionSingle:
 					if *debug {
-						fmt.Printf("[remote] handling Single: button=%s idx=%d directMap=%v\n", e.ButtonID, idx, directMap)
+						fmt.Printf("[remote] handling Single: button=%s idx=%d directMap=%v active=%d\n", e.ButtonID, idx, directMap, tm.ActiveIndex())
 					}
 					if directMap {
-						tm.SwitchTo(idx)
+						// If this button's timer is already active, cycle instead of no-op.
+						if tm.ActiveIndex() == idx {
+							tm.Cycle()
+						} else {
+							tm.SwitchTo(idx)
+						}
 					} else {
 						tm.Cycle()
 					}
