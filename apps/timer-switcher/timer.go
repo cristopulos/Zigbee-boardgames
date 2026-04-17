@@ -17,6 +17,7 @@ type TimerManager struct {
 	timers      []Timer
 	activeIndex int
 	paused      bool
+	debug       bool
 }
 
 // NewTimerManager creates a manager from a slice of timer names.
@@ -31,11 +32,24 @@ func NewTimerManager(names []string) *TimerManager {
 	}
 }
 
+// SetDebug enables or disables debug logging.
+func (tm *TimerManager) SetDebug(v bool) {
+	tm.debug = v
+}
+
+func (tm *TimerManager) logf(format string, args ...interface{}) {
+	if tm.debug {
+		fmt.Printf("[timer] "+format+"\n", args...)
+	}
+}
+
 // Cycle moves the active timer to the next one (wraps around).
 func (tm *TimerManager) Cycle() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
+	old := tm.activeIndex
 	tm.activeIndex = (tm.activeIndex + 1) % len(tm.timers)
+	tm.logf("Cycle: %d -> %d (paused=%v)", old, tm.activeIndex, tm.paused)
 }
 
 // SwitchTo makes the timer at the given index active.
@@ -43,7 +57,11 @@ func (tm *TimerManager) SwitchTo(index int) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	if index >= 0 && index < len(tm.timers) {
+		old := tm.activeIndex
 		tm.activeIndex = index
+		tm.logf("SwitchTo(%d): %d -> %d (paused=%v)", index, old, tm.activeIndex, tm.paused)
+	} else {
+		tm.logf("SwitchTo(%d): ignored out of bounds", index)
 	}
 }
 
@@ -52,15 +70,19 @@ func (tm *TimerManager) Reset() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	tm.timers[tm.activeIndex].elapsed = 0
+	tm.logf("Reset: timer=%d elapsed=0", tm.activeIndex)
 }
 
 // Tick increments the active timer by one second when not paused.
 func (tm *TimerManager) Tick() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
-	if !tm.paused {
-		tm.timers[tm.activeIndex].elapsed++
+	if tm.paused {
+		tm.logf("Tick: skipped (paused=true, timer=%d)", tm.activeIndex)
+		return
 	}
+	tm.timers[tm.activeIndex].elapsed++
+	tm.logf("Tick: timer=%d elapsed=%d", tm.activeIndex, tm.timers[tm.activeIndex].elapsed)
 }
 
 // TogglePause flips the paused state.
@@ -68,6 +90,7 @@ func (tm *TimerManager) TogglePause() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	tm.paused = !tm.paused
+	tm.logf("TogglePause: paused=%v (timer=%d)", tm.paused, tm.activeIndex)
 }
 
 // IsPaused returns true if the timer is currently paused.

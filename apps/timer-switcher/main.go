@@ -50,32 +50,49 @@ func main() {
 	}
 
 	tm := NewTimerManager(names)
+	tm.SetDebug(*debug)
 	ui := NewTimerUI(tm)
+	ui.debug = *debug
 
 	// Start a button listener for each button ID
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	directMap := len(buttonIDs) == len(names)
+	if *debug {
+		fmt.Printf("[main] directMap=%v (buttons=%d, timers=%d)\n", directMap, len(buttonIDs), len(names))
+	}
 	if !directMap && len(buttonIDs) > 1 {
 		fmt.Printf("Note: %d buttons with %d timers — all buttons will cycle\n", len(buttonIDs), len(names))
 	}
 	for i, bid := range buttonIDs {
 		idx := i // capture for closure
 		go func(buttonID string) {
+			if *debug {
+				fmt.Printf("[main] starting listener for button=%s idx=%d\n", buttonID, idx)
+			}
 			_ = gobutton.Listen(ctx, *apiURL, buttonID, func(e gobutton.Event) {
 				if *debug {
-					fmt.Printf("[remote] received: button_id=%s action=%s\n", e.ButtonID, e.Action)
+					fmt.Printf("[remote] received: button_id=%s action=%s battery=%v\n", e.ButtonID, e.Action, e.Battery)
 				}
 				switch e.Action {
 				case gobutton.ActionSingle:
+					if *debug {
+						fmt.Printf("[remote] handling Single: button=%s idx=%d directMap=%v\n", e.ButtonID, idx, directMap)
+					}
 					if directMap {
 						tm.SwitchTo(idx)
 					} else {
 						tm.Cycle()
 					}
 					ui.refreshAll()
+					if *debug {
+						fmt.Printf("[remote] Single handled: active=%d paused=%v\n", tm.ActiveIndex(), tm.IsPaused())
+					}
 				case gobutton.ActionDouble:
+					if *debug {
+						fmt.Printf("[remote] handling Double: button=%s -> TogglePause\n", e.ButtonID)
+					}
 					tm.TogglePause()
 					ui.refreshAll()
 				default:

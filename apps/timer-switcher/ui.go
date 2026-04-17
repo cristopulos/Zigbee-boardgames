@@ -10,6 +10,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"sync"
 	"time"
@@ -200,6 +201,7 @@ type TimerUI struct {
 	cards  []*timerCardWidget
 	ticker *time.Ticker
 	quit   chan struct{}
+	debug  bool
 }
 
 // NewTimerUI creates the GUI window, centered on screen with focus requested.
@@ -234,6 +236,9 @@ func (ui *TimerUI) buildUI() {
 	for i := 0; i < count; i++ {
 		idx := i
 		card := newTimerCardWidget(ui.tm.TimerName(i), i, func() {
+			if ui.debug {
+				fmt.Printf("[ui] card tapped: index=%d\n", idx)
+			}
 			ui.tm.SwitchTo(idx)
 			ui.refreshAll()
 		})
@@ -254,6 +259,9 @@ func (ui *TimerUI) buildUI() {
 
 func (ui *TimerUI) refreshAll() {
 	_, elapsed, activeIdx, paused := ui.tm.Snapshot()
+	if ui.debug {
+		fmt.Printf("[ui] refreshAll: active=%d paused=%v elapsed=%v\n", activeIdx, paused, elapsed)
+	}
 	for i, card := range ui.cards {
 		card.mu.Lock()
 		card.isActive = i == activeIdx
@@ -266,6 +274,9 @@ func (ui *TimerUI) refreshAll() {
 
 func (ui *TimerUI) setupKeyboard() {
 	ui.window.Canvas().SetOnTypedKey(func(ev *fyne.KeyEvent) {
+		if ui.debug {
+			fmt.Printf("[ui] key pressed: %s\n", ev.Name)
+		}
 		switch ev.Name {
 		case fyne.KeySpace:
 			ui.tm.Cycle()
@@ -289,9 +300,15 @@ func (ui *TimerUI) startTicker() {
 		for {
 			select {
 			case <-ui.ticker.C:
+				if ui.debug {
+					fmt.Printf("[ui] ticker fired\n")
+				}
 				ui.tm.Tick()
 				ui.refreshAll()
 			case <-ui.quit:
+				if ui.debug {
+					fmt.Printf("[ui] ticker goroutine exiting\n")
+				}
 				return
 			}
 		}
