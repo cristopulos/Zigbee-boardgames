@@ -30,6 +30,7 @@ var (
 	white          = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 	cyan           = color.NRGBA{R: 144, G: 224, B: 239, A: 255}
 	grey           = color.NRGBA{R: 170, G: 170, B: 170, A: 255}
+	amber          = color.NRGBA{R: 255, G: 193, B: 7, A: 255}
 )
 
 // timerCardWidget is a single timer display card that scales its text to fit
@@ -40,6 +41,7 @@ type timerCardWidget struct {
 
 	index    int
 	isActive bool
+	isPaused bool
 	nameStr  string
 	timeStr  string
 	onTapped func()
@@ -149,6 +151,7 @@ func (r *timerCardRenderer) MinSize() fyne.Size {
 func (r *timerCardRenderer) Refresh() {
 	r.widget.mu.Lock()
 	isActive := r.widget.isActive
+	isPaused := r.widget.isPaused
 	nameStr := r.widget.nameStr
 	timeStr := r.widget.timeStr
 	r.widget.mu.Unlock()
@@ -158,7 +161,11 @@ func (r *timerCardRenderer) Refresh() {
 		r.widget.bg.StrokeColor = activeBorder
 		r.widget.bg.StrokeWidth = 2
 		r.widget.nameText.Color = cyan
-		r.widget.timeText.Color = white
+		if isPaused {
+			r.widget.timeText.Color = amber
+		} else {
+			r.widget.timeText.Color = white
+		}
 	} else {
 		r.widget.bg.FillColor = inactiveColor
 		r.widget.bg.StrokeColor = inactiveBorder
@@ -234,7 +241,7 @@ func (ui *TimerUI) buildUI() {
 		cardsContainer.Add(card)
 	}
 
-	hint := widget.NewLabel("SPACE: Switch  ENTER: Reset  ESC: Quit")
+	hint := widget.NewLabel("SPACE: Switch  ENTER: Reset  P: Pause  ESC: Quit")
 	hint.Alignment = fyne.TextAlignCenter
 	hint.TextStyle = fyne.TextStyle{Italic: true}
 
@@ -246,10 +253,11 @@ func (ui *TimerUI) buildUI() {
 }
 
 func (ui *TimerUI) refreshAll() {
-	_, elapsed, activeIdx := ui.tm.Snapshot()
+	_, elapsed, activeIdx, paused := ui.tm.Snapshot()
 	for i, card := range ui.cards {
 		card.mu.Lock()
 		card.isActive = i == activeIdx
+		card.isPaused = paused
 		card.timeStr = FormatElapsed(elapsed[i])
 		card.mu.Unlock()
 		card.Refresh()
@@ -264,6 +272,9 @@ func (ui *TimerUI) setupKeyboard() {
 			ui.refreshAll()
 		case fyne.KeyReturn:
 			ui.tm.Reset()
+			ui.refreshAll()
+		case fyne.KeyP:
+			ui.tm.TogglePause()
 			ui.refreshAll()
 		case fyne.KeyEscape:
 			ui.Stop()

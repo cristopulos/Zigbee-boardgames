@@ -257,13 +257,25 @@ go build -o timer-switcher .
 | `--api` | `http://localhost:3000` | button-hub API base URL |
 | `--debug` | `false` | Enable verbose event logging |
 
-### TUI Controls
+### Controls
+
+**Keyboard:**
 
 | Key | Action |
 |-----|--------|
 | `SPACE` | Switch to the next timer |
 | `ENTER` | Reset the current timer |
+| `P` | Pause/resume the current timer |
 | `ESC` | Quit |
+
+**Remote button:**
+
+| Action | Effect |
+|--------|--------|
+| Single press | Switch to next timer (cycle mode) or activate mapped timer (1:1 mode) |
+| Double press | Toggle pause/resume on the active timer |
+
+**Paused state:** When paused, the active timer's time displays in amber and stops incrementing.
 
 ## Event JSON Schema
 

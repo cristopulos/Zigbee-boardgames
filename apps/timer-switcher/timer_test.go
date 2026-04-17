@@ -101,7 +101,7 @@ func TestSnapshot(t *testing.T) {
 	tm.Tick()
 	tm.Tick()
 
-	names, elapsed, active := tm.Snapshot()
+	names, elapsed, active, paused := tm.Snapshot()
 	if len(names) != 2 || names[0] != "A" || names[1] != "B" {
 		t.Fatalf("unexpected names: %v", names)
 	}
@@ -110,6 +110,9 @@ func TestSnapshot(t *testing.T) {
 	}
 	if active != 1 {
 		t.Fatalf("unexpected active: %d", active)
+	}
+	if paused {
+		t.Fatalf("expected not paused")
 	}
 }
 
@@ -341,5 +344,125 @@ func TestOutOfBoundsSwitch(t *testing.T) {
 	tm.SwitchTo(2)
 	if tm.ActiveIndex() != 2 {
 		t.Fatalf("expected active index 2 after valid switch, got %d", tm.ActiveIndex())
+	}
+}
+
+// TestTogglePause verifies that TogglePause flips the paused state on/off/on
+func TestTogglePause(t *testing.T) {
+	tm := NewTimerManager([]string{"A", "B"})
+
+	// Initial state should be unpaused (false)
+	if tm.IsPaused() {
+		t.Fatalf("expected initial paused state to be false")
+	}
+
+	// First toggle: should become paused
+	tm.TogglePause()
+	if !tm.IsPaused() {
+		t.Fatalf("expected paused state to be true after first toggle")
+	}
+
+	// Second toggle: should become unpaused
+	tm.TogglePause()
+	if tm.IsPaused() {
+		t.Fatalf("expected paused state to be false after second toggle")
+	}
+
+	// Third toggle: should become paused again
+	tm.TogglePause()
+	if !tm.IsPaused() {
+		t.Fatalf("expected paused state to be true after third toggle")
+	}
+}
+
+// TestIsPaused verifies the initial state is false and true after toggle
+func TestIsPaused(t *testing.T) {
+	tm := NewTimerManager([]string{"A", "B"})
+
+	// Initial state should be false
+	if tm.IsPaused() != false {
+		t.Fatalf("expected initial paused state to be false, got true")
+	}
+
+	// After toggle, should be true
+	tm.TogglePause()
+	if tm.IsPaused() != true {
+		t.Fatalf("expected paused state to be true after toggle, got false")
+	}
+
+	// Toggle again, back to false
+	tm.TogglePause()
+	if tm.IsPaused() != false {
+		t.Fatalf("expected paused state to be false after second toggle, got true")
+	}
+}
+
+// TestTickWhenPaused verifies Tick increments normally, stops when paused, resumes after unpause
+func TestTickWhenPaused(t *testing.T) {
+	tm := NewTimerManager([]string{"A", "B"})
+
+	// Tick normally while not paused
+	tm.Tick()
+	tm.Tick()
+	tm.Tick()
+	if tm.TimerElapsed(0) != 3 {
+		t.Fatalf("expected 3 seconds after 3 ticks, got %d", tm.TimerElapsed(0))
+	}
+
+	// Pause the timer
+	tm.TogglePause()
+	if tm.TimerElapsed(0) != 3 {
+		t.Fatalf("elapsed should not change on pause, expected 3, got %d", tm.TimerElapsed(0))
+	}
+
+	// Tick while paused - should not increment
+	tm.Tick()
+	tm.Tick()
+	tm.Tick()
+	if tm.TimerElapsed(0) != 3 {
+		t.Fatalf("expected elapsed to remain 3 while paused, got %d", tm.TimerElapsed(0))
+	}
+
+	// Unpause the timer
+	tm.TogglePause()
+
+	// Tick while unpaused - should resume incrementing
+	tm.Tick()
+	tm.Tick()
+	if tm.TimerElapsed(0) != 5 {
+		t.Fatalf("expected 5 seconds after resuming, got %d", tm.TimerElapsed(0))
+	}
+}
+
+// TestSnapshotPaused verifies that Snapshot returns the correct paused state
+func TestSnapshotPaused(t *testing.T) {
+	tm := NewTimerManager([]string{"A", "B"})
+	tm.Tick()
+	tm.Tick()
+
+	// Snapshot when not paused should return false for paused
+	names, elapsed, activeIdx, paused := tm.Snapshot()
+	if paused {
+		t.Fatalf("expected paused to be false in initial snapshot")
+	}
+	if len(names) != 2 || len(elapsed) != 2 {
+		t.Fatalf("unexpected snapshot length: names=%d, elapsed=%d", len(names), len(elapsed))
+	}
+	if activeIdx != 0 {
+		t.Fatalf("expected active index 0, got %d", activeIdx)
+	}
+
+	// Pause and verify snapshot returns true
+	tm.TogglePause()
+	_, _, _, paused = tm.Snapshot()
+	if !paused {
+		t.Fatalf("expected paused to be true after toggle")
+	}
+
+	// Unpause and verify snapshot returns false again
+	tm.TogglePause()
+	_, _, _, paused = tm.Snapshot()
+	if paused {
+		t.Fatalf("expected paused to be false after second toggle")
 	}
 }

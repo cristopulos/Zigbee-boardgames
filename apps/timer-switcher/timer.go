@@ -16,6 +16,7 @@ type TimerManager struct {
 	mu          sync.RWMutex
 	timers      []Timer
 	activeIndex int
+	paused      bool
 }
 
 // NewTimerManager creates a manager from a slice of timer names.
@@ -53,11 +54,27 @@ func (tm *TimerManager) Reset() {
 	tm.timers[tm.activeIndex].elapsed = 0
 }
 
-// Tick increments the active timer by one second.
+// Tick increments the active timer by one second when not paused.
 func (tm *TimerManager) Tick() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
-	tm.timers[tm.activeIndex].elapsed++
+	if !tm.paused {
+		tm.timers[tm.activeIndex].elapsed++
+	}
+}
+
+// TogglePause flips the paused state.
+func (tm *TimerManager) TogglePause() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	tm.paused = !tm.paused
+}
+
+// IsPaused returns true if the timer is currently paused.
+func (tm *TimerManager) IsPaused() bool {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+	return tm.paused
 }
 
 // ActiveIndex returns the index of the currently active timer.
@@ -103,7 +120,7 @@ func FormatElapsed(seconds int) string {
 }
 
 // Snapshot returns a consistent snapshot of all timer states for UI rendering.
-func (tm *TimerManager) Snapshot() (names []string, elapsed []int, active int) {
+func (tm *TimerManager) Snapshot() (names []string, elapsed []int, active int, paused bool) {
 	tm.mu.RLock()
 	defer tm.mu.RUnlock()
 
@@ -113,5 +130,5 @@ func (tm *TimerManager) Snapshot() (names []string, elapsed []int, active int) {
 		names[i] = t.name
 		elapsed[i] = t.elapsed
 	}
-	return names, elapsed, tm.activeIndex
+	return names, elapsed, tm.activeIndex, tm.paused
 }

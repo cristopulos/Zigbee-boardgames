@@ -8,10 +8,12 @@
 //   - When the number of buttons matches the number of timers, each button
 //     maps directly to its corresponding timer (1:1 mode).
 //   - Otherwise all buttons cycle through the timers in sequence (cycle mode).
+//   - Double-click any button to pause/resume the active timer.
 //
 // TUI controls:
 //   - SPACE: switch to the next timer
 //   - ENTER: reset timer
+//   - P: pause/resume
 //   - ESC: quit
 package main
 
@@ -65,18 +67,22 @@ func main() {
 				if *debug {
 					fmt.Printf("[remote] received: button_id=%s action=%s\n", e.ButtonID, e.Action)
 				}
-				if e.Action != gobutton.ActionSingle {
-					if *debug {
-						fmt.Printf("[remote] ignored: expected Single, got %s\n", e.Action)
+				switch e.Action {
+				case gobutton.ActionSingle:
+					if directMap {
+						tm.SwitchTo(idx)
+					} else {
+						tm.Cycle()
 					}
-					return
+					ui.refreshAll()
+				case gobutton.ActionDouble:
+					tm.TogglePause()
+					ui.refreshAll()
+				default:
+					if *debug {
+						fmt.Printf("[remote] ignored: expected Single/Double, got %s\n", e.Action)
+					}
 				}
-				if directMap {
-					tm.SwitchTo(idx)
-				} else {
-					tm.Cycle()
-				}
-				ui.refreshAll()
 			})
 		}(bid)
 	}
@@ -87,7 +93,7 @@ func main() {
 	}
 	fmt.Printf("Timer Switcher started with %d timers, %d buttons, mode=%s\n", len(names), len(buttonIDs), mode)
 	fmt.Printf("Listening for buttons: %s\n", strings.Join(buttonIDs, ", "))
-	fmt.Println("Controls: SPACE = switch, ENTER = reset, ESC = quit")
+	fmt.Println("Controls: SPACE = switch, ENTER = reset, P = pause, ESC = quit")
 
 	ui.Show()
 }
