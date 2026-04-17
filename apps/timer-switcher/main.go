@@ -1,3 +1,18 @@
+// Timer Switcher — a TUI app that cycles through named timers via Zigbee button presses.
+//
+// Usage:
+//
+//	timer-switcher --button <id>[,<id>...] [--timers <names>] [--api <url>] [--debug]
+//
+// Button behavior:
+//   - When the number of buttons matches the number of timers, each button
+//     maps directly to its corresponding timer (1:1 mode).
+//   - Otherwise all buttons cycle through the timers in sequence (cycle mode).
+//
+// TUI controls:
+//   - SPACE: switch to the next timer
+//   - ENTER: reset timer
+//   - ESC: quit
 package main
 
 import (
@@ -10,15 +25,19 @@ import (
 	gobutton "github.com/cristopulos/button-hub/go"
 )
 
+// main parses flags, starts a button listener per ID, and runs the TUI.
+// Button presses trigger timer switches; see package-level documentation for
+// how the mapping mode is selected based on button/timer counts.
 func main() {
 	apiURL := flag.String("api", "http://localhost:3000", "button-hub API base URL")
-	buttonID := flag.String("button", "", "button_id to listen for (required)")
+	buttonFlag := flag.String("button", "", "comma-separated button IDs to listen for (required)")
 	timersFlag := flag.String("timers", "Timer 1,Timer 2,Timer 3", "comma-separated timer names")
 	debug := flag.Bool("debug", false, "enable debug logging")
 	flag.Parse()
 
-	if *buttonID == "" {
-		fmt.Fprintln(os.Stderr, "Usage: timer-switcher --button <button_id> [--api <url>] [--timers <names>] [--debug]")
+	buttonIDs := parseButtonIDs(*buttonFlag)
+	if len(buttonIDs) == 0 {
+		fmt.Fprintln(os.Stderr, "Usage: timer-switcher --button <button_id>[,<button_id>...] [--api <url>] [--timers <names>] [--debug]")
 		os.Exit(1)
 	}
 
@@ -31,25 +50,43 @@ func main() {
 	tm := NewTimerManager(names)
 	ui := NewTimerUI(tm)
 
-	// Start button listener in background
+	// Start a button listener for each button ID
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go func() {
-		_ = gobutton.Listen(ctx, *apiURL, *buttonID, func(e gobutton.Event) {
-			if *debug {
-				fmt.Printf("[remote] received: button_id=%s action=%s\n", e.ButtonID, e.Action)
-			}
-			if e.Action == gobutton.ActionSingle {
-				tm.Cycle()
+	directMap := len(buttonIDs) == len(names)
+	if !directMap && len(buttonIDs) > 1 {
+		fmt.Printf("Note: %d buttons with %d timers — all buttons will cycle\n", len(buttonIDs), len(names))
+	}
+	for i, bid := range buttonIDs {
+		idx := i // capture for closure
+		go func(buttonID string) {
+			_ = gobutton.Listen(ctx, *apiURL, buttonID, func(e gobutton.Event) {
+				if *debug {
+					fmt.Printf("[remote] received: button_id=%s action=%s\n", e.ButtonID, e.Action)
+				}
+				if e.Action != gobutton.ActionSingle {
+					if *debug {
+						fmt.Printf("[remote] ignored: expected Single, got %s\n", e.Action)
+					}
+					return
+				}
+				if directMap {
+					tm.SwitchTo(idx)
+				} else {
+					tm.Cycle()
+				}
 				ui.refreshAll()
-			} else if *debug {
-				fmt.Printf("[remote] ignored: expected Single, got %s\n", e.Action)
-			}
-		})
-	}()
+			})
+		}(bid)
+	}
 
-	fmt.Printf("Timer Switcher started with %d timers, listening for button '%s'\n", len(names), *buttonID)
+	mode := "cycle"
+	if directMap {
+		mode = "direct map (1:1)"
+	}
+	fmt.Printf("Timer Switcher started with %d timers, %d buttons, mode=%s\n", len(names), len(buttonIDs), mode)
+	fmt.Printf("Listening for buttons: %s\n", strings.Join(buttonIDs, ", "))
 	fmt.Println("Controls: SPACE = switch, ENTER = reset, ESC = quit")
 
 	ui.Show()
@@ -65,4 +102,8 @@ func parseTimerNames(s string) []string {
 		}
 	}
 	return result
+}
+
+func parseButtonIDs(s string) []string {
+	return parseTimerNames(s) // same comma-split and trim logic
 }

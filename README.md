@@ -225,6 +225,46 @@ func main() {
 go run ./go/cmd/demo --api http://localhost:3000 --button kitchen_button
 ```
 
+## timer-switcher
+
+A Go TUI app that cycles through named timers based on button presses. Source lives in `apps/timer-switcher/`.
+
+### Building
+
+```bash
+cd apps/timer-switcher
+go build -o timer-switcher .
+```
+
+### Usage
+
+```bash
+# Single button — cycles through 3 timers
+./timer-switcher --button kitchen_button
+
+# Multiple buttons
+# - If button count == timer count: each button maps to its corresponding timer (1:1 mode)
+# - Otherwise: all buttons cycle through the sequence (cycle mode)
+./timer-switcher --button btn1,btn2 --timers "Focus,Break,Long Break"
+```
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--button` | (required) | Comma-separated button IDs (e.g. `btn1` or `btn1,btn2,btn3`) |
+| `--timers` | `Timer 1,Timer 2,Timer 3` | Comma-separated timer names |
+| `--api` | `http://localhost:3000` | button-hub API base URL |
+| `--debug` | `false` | Enable verbose event logging |
+
+### TUI Controls
+
+| Key | Action |
+|-----|--------|
+| `SPACE` | Switch to the next timer |
+| `ENTER` | Reset the current timer |
+| `ESC` | Quit |
+
 ## Event JSON Schema
 
 ```json
