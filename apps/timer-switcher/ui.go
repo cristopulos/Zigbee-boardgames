@@ -107,31 +107,39 @@ func (r *timerCardRenderer) Layout(size fyne.Size) {
 		minDim = size.Height
 	}
 
-	nameSize := minDim * 0.15
+	nameSize := minDim * 0.18
 	if nameSize < 10 {
 		nameSize = 10
 	}
-	if nameSize > 28 {
-		nameSize = 28
+	if nameSize > 40 {
+		nameSize = 40
 	}
 
-	timeSize := minDim * 0.22
+	timeSize := minDim * 0.28
 	if timeSize < 14 {
 		timeSize = 14
 	}
-	if timeSize > 48 {
-		timeSize = 48
+	if timeSize > 80 {
+		timeSize = 80
 	}
 
 	// Name sits in the upper portion.
+	oldNameSize := r.widget.nameText.TextSize
 	r.widget.nameText.TextSize = nameSize
 	r.widget.nameText.Resize(fyne.NewSize(size.Width, nameSize*1.4))
 	r.widget.nameText.Move(fyne.NewPos(0, size.Height*0.12))
+	if oldNameSize != nameSize {
+		r.widget.nameText.Refresh()
+	}
 
 	// Time sits below the name.
+	oldTimeSize := r.widget.timeText.TextSize
 	r.widget.timeText.TextSize = timeSize
 	r.widget.timeText.Resize(fyne.NewSize(size.Width, timeSize*1.4))
 	r.widget.timeText.Move(fyne.NewPos(0, size.Height*0.42))
+	if oldTimeSize != timeSize {
+		r.widget.timeText.Refresh()
+	}
 }
 
 func (r *timerCardRenderer) MinSize() fyne.Size {

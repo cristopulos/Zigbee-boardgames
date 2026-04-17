@@ -102,62 +102,62 @@ func TestTimerCardRendererLayout(t *testing.T) {
 		{
 			name:     "Small card",
 			size:     fyne.NewSize(100, 80),
-			wantName: 12, // min is 10, clamped
+			wantName: 14, // 80*0.18=14.4
 			minName:  10,
-			maxName:  28,
-			wantTime: 17, // 80*0.22=17.6, min is 14
+			maxName:  40,
+			wantTime: 22, // 80*0.28=22.4
 			minTime:  14,
-			maxTime:  48,
+			maxTime:  80,
 		},
 		{
 			name:     "Medium card",
 			size:     fyne.NewSize(200, 200),
-			wantName: 28, // 200*0.15=30, clamped to max
+			wantName: 36, // 200*0.18=36
 			minName:  10,
-			maxName:  28,
-			wantTime: 44, // 200*0.22=44
+			maxName:  40,
+			wantTime: 56, // 200*0.28=56
 			minTime:  14,
-			maxTime:  48,
+			maxTime:  80,
 		},
 		{
 			name:     "Large card",
 			size:     fyne.NewSize(500, 400),
-			wantName: 28, // 400*0.15=60, clamped to max
+			wantName: 40, // 400*0.18=72, clamped to max
 			minName:  10,
-			maxName:  28,
-			wantTime: 48, // 400*0.22=88, clamped to max
+			maxName:  40,
+			wantTime: 80, // 400*0.28=112, clamped to max
 			minTime:  14,
-			maxTime:  48,
+			maxTime:  80,
 		},
 		{
 			name:     "Very small card",
 			size:     fyne.NewSize(50, 50),
 			wantName: 10, // min is 10
 			minName:  10,
-			maxName:  28,
+			maxName:  40,
 			wantTime: 14, // min is 14
 			minTime:  14,
-			maxTime:  48,
+			maxTime:  80,
 		},
 		{
 			name:     "Tall narrow card",
 			size:     fyne.NewSize(100, 300),
-			wantName: 15, // 100*0.15=15
+			wantName: 18, // 100*0.18=18
 			minName:  10,
-			maxName:  28,
-			wantTime: 22, // 100*0.22=22
+			maxName:  40,
+			wantTime: 28, // 100*0.28=28
 			minTime:  14,
-			maxTime:  48,
+			maxTime:  80,
 		},
 		{
 			name:     "Wide short card",
 			size:     fyne.NewSize(300, 100),
-			wantName: 15, // 100*0.15=15
+			wantName: 18, // 100*0.18=18
 			minName:  10,
-			maxName:  28,
-			wantTime: 22, // 100*0.22=22
+			maxName:  40,
+			wantTime: 28, // 100*0.28=28
 			minTime:  14,
-			maxTime:  48,
+			maxTime:  80,
 		},
 	}
 
