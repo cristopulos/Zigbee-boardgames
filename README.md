@@ -229,6 +229,10 @@ go run ./go/cmd/demo --api http://localhost:3000 --button kitchen_button
 
 A Fyne-based GUI app that displays configurable timers and cycles through them based on button presses or keyboard input. Source lives in `apps/timer-switcher/`.
 
+### Connection behavior
+
+timer-switcher connects to button-hub via Server-Sent Events (SSE) and automatically reconnects if the connection is lost. If button-hub restarts or the network drops, it will retry with exponential backoff (1s → 2s → 4s ... up to 30s) until the connection is restored. Timer state persists locally regardless of connection status.
+
 ### Features
 
 - Displays N configurable timers (minimum 2) in a horizontal row

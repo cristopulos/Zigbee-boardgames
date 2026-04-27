@@ -13,6 +13,8 @@ import (
 )
 
 // Client connects to the button-hub SSE stream.
+// It implements a 30-second idle timeout on SSE reads to detect dead connections,
+// and uses a goroutine-based read architecture to prevent blocking on network failures.
 // Use [NewClient] to create an instance.
 type Client struct {
 	apiURL string
@@ -23,7 +25,9 @@ type Client struct {
 func NewClient(apiURL string) *Client {
 	return &Client{
 		apiURL: strings.TrimSuffix(apiURL, "/"),
-		client: &http.Client{Timeout: 30 * time.Second},
+		client: &http.Client{
+			Timeout: 60 * time.Second,
+		},
 	}
 }
 
@@ -53,15 +57,77 @@ func (c *Client) Listen(ctx context.Context, buttonID string, handler func(Event
 	reader := bufio.NewReader(resp.Body)
 	var data bytes.Buffer
 
+	// Channels for async read results. Using a goroutine prevents blocking on
+	// dead connections — the read call returns immediately, and we detect timeouts
+	// via the select below.
+	lineChan := make(chan []byte, 1)
+	readErrChan := make(chan error, 1)
+
+	// 30-second idle timeout: if no data arrives within this window, the SSE
+	// connection is considered dead (e.g., network drop, server restart).
+	// The timer is reset on every successful read to only measure idle time.
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
+
+	// resetTimer safely resets the timer, handling the edge case where Stop()
+	// returns false (timer already fired) by draining the channel first.
+	resetTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(30 * time.Second)
+	}
+
+	// Read loop: spawns a goroutine for each read operation. This allows the
+	// select to wake on either new data OR timeout, rather than blocking on
+	// a hung TCP connection. Comment/ping lines (": ..." prefix) are skipped.
 	for {
+		go func() {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				readErrChan <- err
+			} else {
+				lineChan <- line
+			}
+		}()
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-		}
+		case <-timer.C:
+			return fmt.Errorf("sse: read timeout (no data received)")
+		case line := <-lineChan:
+			resetTimer()
+			line = bytes.TrimRight(line, "\r\n")
 
-		line, err := reader.ReadBytes('\n')
-		if err != nil {
+			if len(line) == 0 {
+				if data.Len() > 0 {
+					var evt Event
+					if err := json.Unmarshal(data.Bytes(), &evt); err == nil {
+						if evt.ButtonID == buttonID {
+							handler(evt)
+						}
+					}
+					data.Reset()
+				}
+				continue
+			}
+
+			if bytes.HasPrefix(line, []byte(":")) {
+				// Ignore comment/ping lines (keep-alive events)
+				continue
+			}
+
+			if bytes.HasPrefix(line, []byte("data:")) {
+				payload := bytes.TrimPrefix(line, []byte("data:"))
+				payload = bytes.TrimLeft(payload, " ")
+				data.Write(payload)
+				data.WriteByte('\n')
+			}
+		case err := <-readErrChan:
 			if data.Len() > 0 {
 				var evt Event
 				if err := json.Unmarshal(data.Bytes(), &evt); err == nil && evt.ButtonID == buttonID {
@@ -69,27 +135,6 @@ func (c *Client) Listen(ctx context.Context, buttonID string, handler func(Event
 				}
 			}
 			return err
-		}
-		line = bytes.TrimRight(line, "\r\n")
-
-		if len(line) == 0 {
-			if data.Len() > 0 {
-				var evt Event
-				if err := json.Unmarshal(data.Bytes(), &evt); err == nil {
-					if evt.ButtonID == buttonID {
-						handler(evt)
-					}
-				}
-				data.Reset()
-			}
-			continue
-		}
-
-		if bytes.HasPrefix(line, []byte("data:")) {
-			payload := bytes.TrimPrefix(line, []byte("data:"))
-			payload = bytes.TrimLeft(payload, " ")
-			data.Write(payload)
-			data.WriteByte('\n')
 		}
 	}
 }
