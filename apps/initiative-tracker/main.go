@@ -164,6 +164,9 @@ func main() {
 	}
 
 	state := NewTrackerState(start, 9) // Always 9 state entries for consistent initiative indexing
+	if numInitiatives == 8 {
+		state.ToggleEnabled(0) // Disable Naalu (index 0) when not using --naalu
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
