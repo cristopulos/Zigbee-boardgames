@@ -78,19 +78,20 @@ func TestInitiativeCardRendererObjects(t *testing.T) {
 }
 
 func TestInitiativeCardColors(t *testing.T) {
-	expectedColors := [numInitiatives]color.RGBA{
-		{R: 0x00, G: 0xB4, B: 0xD8, A: 0xFF}, // Naalu - Teal
-		{R: 0xE6, G: 0xA8, B: 0x17, A: 0xFF}, // Leadership - Gold
-		{R: 0x00, G: 0x77, B: 0xB6, A: 0xFF}, // Diplomacy - Blue
-		{R: 0x7B, G: 0x2D, B: 0x8B, A: 0xFF}, // Politics - Purple
-		{R: 0x2E, G: 0x7D, B: 0x32, A: 0xFF}, // Construction - Green
-		{R: 0xF9, G: 0xA8, B: 0x25, A: 0xFF}, // Trade - Yellow/Gold
-		{R: 0xD3, G: 0x2F, B: 0x2F, A: 0xFF}, // Warfare - Red
-		{R: 0xE6, G: 0x51, B: 0x00, A: 0xFF}, // Technology - Orange
-		{R: 0x21, G: 0x21, B: 0x21, A: 0xFF}, // Imperial - Black
+	// Strategy card colors from TI4 artwork (verified)
+	expectedColors := []color.RGBA{
+		{R: 0x00, G: 0xB4, B: 0xD8, A: 0xFF}, // 0 - Naalu - Teal
+		{R: 0xDF, G: 0x23, B: 0x22, A: 0xFF}, // 1 - Leadership - Red
+		{R: 0xED, G: 0x92, B: 0x37, A: 0xFF}, // 2 - Diplomacy - Orange
+		{R: 0xFA, G: 0xF0, B: 0x1D, A: 0xFF}, // 3 - Politics - Yellow
+		{R: 0x30, G: 0xAF, B: 0x60, A: 0xFF}, // 4 - Construction - Green
+		{R: 0x03, G: 0xA6, B: 0x91, A: 0xFF}, // 5 - Trade - Teal
+		{R: 0x1B, G: 0x8B, B: 0xCD, A: 0xFF}, // 6 - Warfare - Light Blue
+		{R: 0x1B, G: 0x45, B: 0x97, A: 0xFF}, // 7 - Technology - Dark Blue
+		{R: 0x89, G: 0x4A, B: 0xA5, A: 0xFF}, // 8 - Imperial - Purple
 	}
 
-	for i := 0; i < numInitiatives; i++ {
+	for i := 0; i < len(initiativeData); i++ {
 		bg, _, _ := colorsForState(i, true, true)
 		exp := expectedColors[i]
 		if bg.R != exp.R || bg.G != exp.G || bg.B != exp.B || bg.A != exp.A {
@@ -100,7 +101,7 @@ func TestInitiativeCardColors(t *testing.T) {
 }
 
 func TestInitiativeCardActiveState(t *testing.T) {
-	bg, num, _ := colorsForState(3, true, true)
+	bg, num, _ := colorsForState(1, true, true)
 
 	if bg.A == 0 {
 		t.Error("active card should have full opacity background")
@@ -111,7 +112,7 @@ func TestInitiativeCardActiveState(t *testing.T) {
 }
 
 func TestInitiativeCardInactiveState(t *testing.T) {
-	bg, num, name := colorsForState(4, false, true)
+	bg, num, name := colorsForState(2, false, true)
 
 	if bg.A == 0 {
 		t.Error("inactive enabled card should have dimmed background")
@@ -123,7 +124,7 @@ func TestInitiativeCardInactiveState(t *testing.T) {
 }
 
 func TestInitiativeCardDisabledState(t *testing.T) {
-	bg, num, name := colorsForState(5, true, false)
+	bg, num, name := colorsForState(3, true, false)
 
 	if bg != (color.RGBA{R: 0x33, G: 0x33, B: 0x33, A: 0xFF}) {
 		t.Errorf("disabled card should have #333 background, got %v", bg)
@@ -213,8 +214,8 @@ func TestCardName(t *testing.T) {
 	if cardName(-1) != "" {
 		t.Error("cardName(-1) should return empty string")
 	}
-	if cardName(numInitiatives) != "" {
-		t.Error("cardName(numInitiatives) should return empty string")
+	if cardName(100) != "" {
+		t.Error("cardName(100) should return empty string")
 	}
 }
 
@@ -222,7 +223,7 @@ func TestCardNumber(t *testing.T) {
 	if cardNumber(0) != "0" {
 		t.Errorf("cardNumber(0) should be \"0\", got %q", cardNumber(0))
 	}
-	for i := 1; i < numInitiatives; i++ {
+	for i := 1; i <= 8; i++ {
 		got := cardNumber(i)
 		if got == "" {
 			t.Errorf("cardNumber(%d): expected non-empty string, got empty", i)
@@ -263,52 +264,57 @@ func TestDimColor(t *testing.T) {
 // --- TrackerState tests ---
 
 func TestNewTrackerState(t *testing.T) {
-	s := NewTrackerState(1)
-	if s.Current() != 1 {
-		t.Errorf("expected current 1, got %d", s.Current())
+	s := NewTrackerState(0, 8)
+	if s.Current() != 0 {
+		t.Errorf("expected current 0, got %d", s.Current())
 	}
-	for i := 0; i < numInitiatives; i++ {
+	for i := 0; i < 8; i++ {
 		if !s.Enabled(i) {
-			t.Errorf("expected all cards enabled, card %d is disabled", i)
+			t.Errorf("expected all 8 cards enabled, card %d is disabled", i)
 		}
 	}
 }
 
+func TestNewTrackerStateWithNaalu(t *testing.T) {
+	s := NewTrackerState(1, 9)
+	if s.Current() != 1 {
+		t.Errorf("expected current 1, got %d", s.Current())
+	}
+	if len(s.AllEnabled()) != 9 {
+		t.Errorf("expected 9 cards with naalu, got %d", len(s.AllEnabled()))
+	}
+}
+
 func TestNewTrackerStateInvalidStart(t *testing.T) {
-	s := NewTrackerState(-1)
-	if s.Current() != 1 {
-		t.Errorf("expected current 1 for invalid start -1, got %d", s.Current())
+	s := NewTrackerState(-1, 8)
+	if s.Current() != 0 {
+		t.Errorf("expected current 0 for invalid start -1, got %d", s.Current())
 	}
 
-	s = NewTrackerState(9)
-	if s.Current() != 1 {
-		t.Errorf("expected current 1 for invalid start 9, got %d", s.Current())
-	}
-
-	s = NewTrackerState(99)
-	if s.Current() != 1 {
-		t.Errorf("expected current 1 for invalid start 99, got %d", s.Current())
+	s = NewTrackerState(99, 8)
+	if s.Current() != 0 {
+		t.Errorf("expected current 0 for invalid start 99, got %d", s.Current())
 	}
 }
 
 func TestNext(t *testing.T) {
-	s := NewTrackerState(1)
+	s := NewTrackerState(0, 8)
+	s.Next()
+	if s.Current() != 1 {
+		t.Errorf("expected current 1, got %d", s.Current())
+	}
+
 	s.Next()
 	if s.Current() != 2 {
 		t.Errorf("expected current 2, got %d", s.Current())
 	}
-
-	s.Next()
-	if s.Current() != 3 {
-		t.Errorf("expected current 3, got %d", s.Current())
-	}
 }
 
 func TestNextWraps(t *testing.T) {
-	s := NewTrackerState(8)
+	s := NewTrackerState(7, 8)
 	s.Next()
 	if s.Current() != 0 {
-		t.Errorf("expected current 0 after wrapping from 8, got %d", s.Current())
+		t.Errorf("expected current 0 after wrapping from 7, got %d", s.Current())
 	}
 
 	s.Next()
@@ -318,7 +324,7 @@ func TestNextWraps(t *testing.T) {
 }
 
 func TestNextSkipsDisabled(t *testing.T) {
-	s := NewTrackerState(0)
+	s := NewTrackerState(0, 8)
 	s.enabled[1] = false
 	s.enabled[2] = false
 	s.Next()
@@ -328,7 +334,7 @@ func TestNextSkipsDisabled(t *testing.T) {
 }
 
 func TestPrev(t *testing.T) {
-	s := NewTrackerState(3)
+	s := NewTrackerState(3, 8)
 	s.Prev()
 	if s.Current() != 2 {
 		t.Errorf("expected current 2, got %d", s.Current())
@@ -341,20 +347,20 @@ func TestPrev(t *testing.T) {
 }
 
 func TestPrevWraps(t *testing.T) {
-	s := NewTrackerState(0)
+	s := NewTrackerState(0, 8)
 	s.Prev()
-	if s.Current() != 8 {
-		t.Errorf("expected current 8 after wrapping from 0, got %d", s.Current())
+	if s.Current() != 7 {
+		t.Errorf("expected current 7 after wrapping from 0, got %d", s.Current())
 	}
 
 	s.Prev()
-	if s.Current() != 7 {
-		t.Errorf("expected current 7 after wrapping from 8, got %d", s.Current())
+	if s.Current() != 6 {
+		t.Errorf("expected current 6 after wrapping from 7, got %d", s.Current())
 	}
 }
 
 func TestPrevSkipsDisabled(t *testing.T) {
-	s := NewTrackerState(4)
+	s := NewTrackerState(4, 8)
 	s.enabled[3] = false
 	s.enabled[2] = false
 	s.Prev()
@@ -364,21 +370,21 @@ func TestPrevSkipsDisabled(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	s := NewTrackerState(1)
+	s := NewTrackerState(0, 8)
 	s.Next()
 	s.Next()
-	if s.Current() != 3 {
-		t.Errorf("expected current 3, got %d", s.Current())
+	if s.Current() != 2 {
+		t.Errorf("expected current 2, got %d", s.Current())
 	}
 
-	s.Reset(1)
-	if s.Current() != 1 {
-		t.Errorf("expected current 1 after reset, got %d", s.Current())
+	s.Reset(0)
+	if s.Current() != 0 {
+		t.Errorf("expected current 0 after reset, got %d", s.Current())
 	}
 }
 
 func TestResetInvalidStartUsesFirstEnabled(t *testing.T) {
-	s := NewTrackerState(5)
+	s := NewTrackerState(5, 8)
 	s.enabled[5] = false
 	s.enabled[6] = false
 	s.Reset(5)
@@ -388,7 +394,7 @@ func TestResetInvalidStartUsesFirstEnabled(t *testing.T) {
 }
 
 func TestToggleEnabled(t *testing.T) {
-	s := NewTrackerState(1)
+	s := NewTrackerState(0, 8)
 
 	if !s.Enabled(3) {
 		t.Error("expected card 3 to be enabled initially")
@@ -406,7 +412,7 @@ func TestToggleEnabled(t *testing.T) {
 }
 
 func TestToggleEnabledCurrentCardAdvances(t *testing.T) {
-	s := NewTrackerState(2)
+	s := NewTrackerState(2, 8)
 
 	s.ToggleEnabled(2)
 	if s.Current() != 3 {
@@ -415,29 +421,29 @@ func TestToggleEnabledCurrentCardAdvances(t *testing.T) {
 }
 
 func TestToggleEnabledOutOfBounds(t *testing.T) {
-	s := NewTrackerState(1)
+	s := NewTrackerState(0, 8)
 	s.ToggleEnabled(-1)
 	s.ToggleEnabled(99)
-	if s.Current() != 1 {
+	if s.Current() != 0 {
 		t.Errorf("expected current unchanged after out-of-bounds toggle, got %d", s.Current())
 	}
 }
 
 func TestNextAllDisabled(t *testing.T) {
-	s := NewTrackerState(1)
-	for i := 0; i < numInitiatives; i++ {
+	s := NewTrackerState(0, 8)
+	for i := range s.enabled {
 		s.enabled[i] = false
 	}
 
 	s.Next()
-	if s.Current() != 1 {
+	if s.Current() != 0 {
 		t.Errorf("expected current unchanged when all disabled, got %d", s.Current())
 	}
 }
 
 func TestPrevAllDisabled(t *testing.T) {
-	s := NewTrackerState(3)
-	for i := 0; i < numInitiatives; i++ {
+	s := NewTrackerState(3, 8)
+	for i := range s.enabled {
 		s.enabled[i] = false
 	}
 
@@ -448,7 +454,7 @@ func TestPrevAllDisabled(t *testing.T) {
 }
 
 func TestSetCurrent(t *testing.T) {
-	s := NewTrackerState(1)
+	s := NewTrackerState(0, 8)
 	s.SetCurrent(7)
 	if s.Current() != 7 {
 		t.Errorf("expected current 7, got %d", s.Current())
@@ -456,7 +462,7 @@ func TestSetCurrent(t *testing.T) {
 }
 
 func TestAllEnabled(t *testing.T) {
-	s := NewTrackerState(1)
+	s := NewTrackerState(0, 8)
 	s.enabled[4] = false
 	all := s.AllEnabled()
 
@@ -465,5 +471,25 @@ func TestAllEnabled(t *testing.T) {
 	}
 	if !all[5] {
 		t.Error("expected allEnabled[5] to be true")
+	}
+}
+
+func TestParseButtonIDs(t *testing.T) {
+	ids := parseButtonIDs("btn1, btn2, btn3")
+	if len(ids) != 3 {
+		t.Errorf("expected 3 IDs, got %d", len(ids))
+	}
+	if ids[0] != "btn1" || ids[1] != "btn2" || ids[2] != "btn3" {
+		t.Errorf("unexpected IDs: %v", ids)
+	}
+
+	ids = parseButtonIDs("")
+	if len(ids) != 0 {
+		t.Errorf("expected 0 IDs for empty string, got %d", len(ids))
+	}
+
+	ids = parseButtonIDs("  single  ")
+	if len(ids) != 1 || ids[0] != "single" {
+		t.Errorf("expected ['single'], got %v", ids)
 	}
 }

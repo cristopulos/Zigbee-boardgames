@@ -6,24 +6,29 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
 	gobutton "github.com/cristopulos/button-hub/go"
 )
 
-const numInitiatives = 9
+// Default numInitiatives (Naalu disabled by default)
+const defaultNumInitiatives = 8
 
 type TrackerState struct {
 	current int
-	enabled [numInitiatives]bool
+	enabled []bool
 	mu      sync.RWMutex
 }
 
-func NewTrackerState(start int) *TrackerState {
-	enabled := [numInitiatives]bool{true, true, true, true, true, true, true, true, true}
+func NewTrackerState(start, numInitiatives int) *TrackerState {
+	enabled := make([]bool, numInitiatives)
+	for i := range enabled {
+		enabled[i] = true
+	}
 	if start < 0 || start >= numInitiatives {
-		start = 1
+		start = 0
 	}
 	return &TrackerState{
 		current: start,
@@ -53,9 +58,10 @@ func (s *TrackerState) Next() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	n := len(s.enabled)
 	start := s.current
 	for {
-		s.current = (s.current + 1) % numInitiatives
+		s.current = (s.current + 1) % n
 		if s.enabled[s.current] {
 			return
 		}
@@ -69,9 +75,10 @@ func (s *TrackerState) Prev() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	n := len(s.enabled)
 	start := s.current
 	for {
-		s.current = (s.current - 1 + numInitiatives) % numInitiatives
+		s.current = (s.current - 1 + n) % n
 		if s.enabled[s.current] {
 			return
 		}
@@ -84,10 +91,10 @@ func (s *TrackerState) Prev() {
 func (s *TrackerState) Reset(start int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if start >= 0 && start < numInitiatives && s.enabled[start] {
+	if start >= 0 && start < len(s.enabled) && s.enabled[start] {
 		s.current = start
 	} else {
-		for i := 0; i < numInitiatives; i++ {
+		for i := 0; i < len(s.enabled); i++ {
 			if s.enabled[i] {
 				s.current = i
 				return
@@ -99,13 +106,13 @@ func (s *TrackerState) Reset(start int) {
 func (s *TrackerState) ToggleEnabled(i int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if i < 0 || i >= numInitiatives {
+	if i < 0 || i >= len(s.enabled) {
 		return
 	}
 	s.enabled[i] = !s.enabled[i]
 	if !s.enabled[i] && s.current == i {
-		for j := 0; j < numInitiatives; j++ {
-			idx := (i + 1 + j) % numInitiatives
+		for j := 0; j < len(s.enabled); j++ {
+			idx := (i + 1 + j) % len(s.enabled)
 			if s.enabled[idx] {
 				s.current = idx
 				return
@@ -114,19 +121,41 @@ func (s *TrackerState) ToggleEnabled(i int) {
 	}
 }
 
-func (s *TrackerState) AllEnabled() [numInitiatives]bool {
+func (s *TrackerState) AllEnabled() []bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.enabled
+	result := make([]bool, len(s.enabled))
+	copy(result, s.enabled)
+	return result
+}
+
+func parseButtonIDs(s string) []string {
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 func main() {
 	apiURL := flag.String("api", "http://localhost:3000", "button-hub API URL")
-	buttonID := flag.String("button", "", "Button ID (optional; keyboard-only if empty)")
-	startFlag := flag.Int("start", 1, "Starting initiative number (0-8)")
+	buttonFlag := flag.String("button", "", "comma-separated button IDs (optional)")
+	naalu := flag.Bool("naalu", false, "include Naalu initiative 0")
+	startFlag := flag.Int("start", 0, "starting initiative number")
 	flag.Parse()
 
-	state := NewTrackerState(*startFlag)
+	// Determine number of initiatives based on --naalu flag
+	numInitiatives := defaultNumInitiatives
+	if *naalu {
+		numInitiatives = 9 // Include Naalu
+	}
+	start := *startFlag
+
+	state := NewTrackerState(start, numInitiatives)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -136,33 +165,39 @@ func main() {
 
 	refreshCh := make(chan struct{}, 1)
 
-	if *buttonID != "" {
-		go func() {
-			err := gobutton.Listen(ctx, *apiURL, *buttonID, func(e gobutton.Event) {
-				switch e.Action {
-				case gobutton.ActionSingle:
-					state.Next()
-				case gobutton.ActionDouble:
-					state.Reset(*startFlag)
-				}
-				select {
-				case refreshCh <- struct{}{}:
-				default:
-				}
-			})
-			if err != nil && ctx.Err() == nil {
-				fmt.Fprintf(os.Stderr, "button listen error: %v\n", err)
-			}
-		}()
+	buttonIDs := parseButtonIDs(*buttonFlag)
+	if len(buttonIDs) > 0 {
+		for _, bid := range buttonIDs {
+			go func(buttonID string) {
+				_ = gobutton.Listen(ctx, *apiURL, buttonID, func(e gobutton.Event) {
+					switch e.Action {
+					case gobutton.ActionSingle:
+						state.Next()
+					case gobutton.ActionDouble:
+						state.Reset(start)
+					}
+					select {
+					case refreshCh <- struct{}{}:
+					default:
+					}
+				})
+			}(bid)
+		}
 	}
 
-	ui := NewTrackerUI(state, refreshCh)
+	ui := NewTrackerUI(state, refreshCh, numInitiatives)
 
 	go func() {
 		<-quit
 		cancel()
 		ui.Stop()
 	}()
+
+	if len(buttonIDs) > 0 {
+		fmt.Printf("Initiative Tracker started, %d initiatives, listening for buttons: %s\n", numInitiatives, strings.Join(buttonIDs, ", "))
+	} else {
+		fmt.Printf("Initiative Tracker started, %d initiatives (keyboard-only mode)\n", numInitiatives)
+	}
 
 	ui.Show()
 }

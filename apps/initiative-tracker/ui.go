@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -53,7 +54,7 @@ type initiativeCardRenderer struct {
 }
 
 func newInitiativeCardRenderer(w *initiativeCardWidget) *initiativeCardRenderer {
-	bg := canvas.NewRectangle(color.RGBA{R: 0x00, G: 0xB4, B: 0xD8, A: 0xFF})
+	bg := canvas.NewRectangle(color.RGBA{R: 0xDF, G: 0x23, B: 0x22, A: 0xFF})
 	numText := canvas.NewText("", color.White)
 	nameText := canvas.NewText("", color.White)
 	numText.Alignment = fyne.TextAlignCenter
@@ -151,21 +152,25 @@ func clamp(val float32) float32 {
 	return val
 }
 
-// --- Strategy card data ---
+// Max 9 initiatives (including Naalu). TrackerState manages actual count.
+const numInitiatives = 9
+
+// --- Strategy card data (verified from TI4 artwork) ---
+// 0=Naalu, 1=Leadership, 2=Diplomacy, 3=Politics, 4=Construction, 5=Trade, 6=Warfare, 7=Technology, 8=Imperial
 
 var initiativeData = [numInitiatives]struct {
 	name  string
 	color color.RGBA
 }{
-	{"Naalu", color.RGBA{R: 0x00, G: 0xB4, B: 0xD8, A: 0xFF}},         // 0 - Teal
-	{"Leadership", color.RGBA{R: 0xE6, G: 0xA8, B: 0x17, A: 0xFF}},     // 1 - Gold
-	{"Diplomacy", color.RGBA{R: 0x00, G: 0x77, B: 0xB6, A: 0xFF}},      // 2 - Blue
-	{"Politics", color.RGBA{R: 0x7B, G: 0x2D, B: 0x8B, A: 0xFF}},       // 3 - Purple
-	{"Construction", color.RGBA{R: 0x2E, G: 0x7D, B: 0x32, A: 0xFF}},   // 4 - Green
-	{"Trade", color.RGBA{R: 0xF9, G: 0xA8, B: 0x25, A: 0xFF}},          // 5 - Yellow/Gold
-	{"Warfare", color.RGBA{R: 0xD3, G: 0x2F, B: 0x2F, A: 0xFF}},        // 6 - Red
-	{"Technology", color.RGBA{R: 0xE6, G: 0x51, B: 0x00, A: 0xFF}},     // 7 - Orange
-	{"Imperial", color.RGBA{R: 0x21, G: 0x21, B: 0x21, A: 0xFF}},       // 8 - Black
+	{"Naalu", color.RGBA{R: 0x00, G: 0xB4, B: 0xD8, A: 0xFF}},       // 0 - Teal (Naalu token)
+	{"Leadership", color.RGBA{R: 0xDF, G: 0x23, B: 0x22, A: 0xFF}},   // 1 - Red
+	{"Diplomacy", color.RGBA{R: 0xED, G: 0x92, B: 0x37, A: 0xFF}},    // 2 - Orange
+	{"Politics", color.RGBA{R: 0xFA, G: 0xF0, B: 0x1D, A: 0xFF}},    // 3 - Yellow
+	{"Construction", color.RGBA{R: 0x30, G: 0xAF, B: 0x60, A: 0xFF}}, // 4 - Green
+	{"Trade", color.RGBA{R: 0x03, G: 0xA6, B: 0x91, A: 0xFF}},        // 5 - Teal
+	{"Warfare", color.RGBA{R: 0x1B, G: 0x8B, B: 0xCD, A: 0xFF}},      // 6 - Light Blue
+	{"Technology", color.RGBA{R: 0x1B, G: 0x45, B: 0x97, A: 0xFF}},   // 7 - Dark Blue
+	{"Imperial", color.RGBA{R: 0x89, G: 0x4A, B: 0xA5, A: 0xFF}},     // 8 - Purple
 }
 
 func cardName(index int) string {
@@ -219,27 +224,39 @@ func colorsForState(index int, isActive, isEnabled bool) (bg, num, name color.RG
 type TrackerUI struct {
 	window    fyne.Window
 	state     *TrackerState
-	cards     [numInitiatives]*initiativeCardWidget
+	cards     []*initiativeCardWidget
 	bg        *canvas.Rectangle
 	quit      chan struct{}
 	startInit int
 }
 
-func NewTrackerUI(state *TrackerState, refreshCh <-chan struct{}) *TrackerUI {
-	app := fyne.CurrentApp()
-	window := app.NewWindow("Initiative Tracker")
+func NewTrackerUI(state *TrackerState, refreshCh <-chan struct{}, numInitiatives int) *TrackerUI {
+	a := app.New()
+	w := a.NewWindow("Initiative Tracker")
 
 	ui := &TrackerUI{
-		window:    window,
+		window:    w,
 		state:     state,
 		bg:        canvas.NewRectangle(color.RGBA{R: 0x1a, G: 0x1a, B: 0x2e, A: 0xFF}),
 		quit:      make(chan struct{}),
 		startInit: state.Current(),
 	}
 
-	window.SetContent(ui.buildUI())
-	window.Resize(fyne.NewSize(1200, 200))
-	window.CenterOnScreen()
+	// Create cards based on numInitiatives
+	ui.cards = make([]*initiativeCardWidget, 0, numInitiatives)
+	for i := 0; i < numInitiatives; i++ {
+		idx := i
+		card := newInitiativeCardWidget(idx, func() {
+			ui.state.ToggleEnabled(idx)
+			ui.refreshAll()
+		})
+		ui.cards = append(ui.cards, card)
+	}
+
+	w.SetContent(ui.buildUI())
+	w.Resize(fyne.NewSize(1200, 200))
+	w.CenterOnScreen()
+	w.RequestFocus()
 
 	ui.window.Canvas().SetOnTypedKey(func(ev *fyne.KeyEvent) {
 		changed := false
@@ -256,6 +273,9 @@ func NewTrackerUI(state *TrackerState, refreshCh <-chan struct{}) *TrackerUI {
 		case fyne.KeyEscape:
 			ui.Stop()
 			ui.window.Close()
+		default:
+			// Number keys 0-8 to toggle tile enabled/disabled
+			changed = handleNumberKey(ev.Name, state)
 		}
 		if changed {
 			ui.refreshAll()
@@ -276,18 +296,42 @@ func NewTrackerUI(state *TrackerState, refreshCh <-chan struct{}) *TrackerUI {
 	return ui
 }
 
+func handleNumberKey(name fyne.KeyName, state *TrackerState) bool {
+	var index int = -1
+	switch name {
+	case fyne.Key0:
+		index = 0
+	case fyne.Key1:
+		index = 1
+	case fyne.Key2:
+		index = 2
+	case fyne.Key3:
+		index = 3
+	case fyne.Key4:
+		index = 4
+	case fyne.Key5:
+		index = 5
+	case fyne.Key6:
+		index = 6
+	case fyne.Key7:
+		index = 7
+	case fyne.Key8:
+		index = 8
+	}
+	if index >= 0 {
+		state.ToggleEnabled(index)
+		return true
+	}
+	return false
+}
+
 func (ui *TrackerUI) buildUI() fyne.CanvasObject {
-	cards := make([]fyne.CanvasObject, numInitiatives)
-	for i := 0; i < numInitiatives; i++ {
-		idx := i
-		ui.cards[i] = newInitiativeCardWidget(idx, func() {
-			ui.state.ToggleEnabled(idx)
-			ui.refreshAll()
-		})
-		cards[i] = ui.cards[i]
+	cards := make([]fyne.CanvasObject, 0, len(ui.cards))
+	for _, card := range ui.cards {
+		cards = append(cards, card)
 	}
 
-	grid := container.NewGridWithColumns(numInitiatives, cards...)
+	grid := container.NewGridWithColumns(len(cards), cards...)
 	return container.NewStack(ui.bg, grid)
 }
 
@@ -295,7 +339,7 @@ func (ui *TrackerUI) refreshAll() {
 	current := ui.state.Current()
 	allEnabled := ui.state.AllEnabled()
 
-	for i := 0; i < numInitiatives; i++ {
+	for i := 0; i < len(ui.cards); i++ {
 		ui.cards[i].mu.Lock()
 		ui.cards[i].isActive = (i == current)
 		ui.cards[i].isEnabled = allEnabled[i]
