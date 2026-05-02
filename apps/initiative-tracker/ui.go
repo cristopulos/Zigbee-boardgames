@@ -243,9 +243,15 @@ func NewTrackerUI(state *TrackerState, refreshCh <-chan struct{}, numInitiatives
 	}
 
 	// Create cards based on numInitiatives
+	// When numInitiatives=8 (no --naalu), skip index 0 (Naalu), show 1-8
+	// When numInitiatives=9 (with --naalu), show 0-8
+	offset := 0
+	if numInitiatives == 8 {
+		offset = 1
+	}
 	ui.cards = make([]*initiativeCardWidget, 0, numInitiatives)
 	for i := 0; i < numInitiatives; i++ {
-		idx := i
+		idx := i + offset
 		card := newInitiativeCardWidget(idx, func() {
 			ui.state.ToggleEnabled(idx)
 			ui.refreshAll()
@@ -340,11 +346,12 @@ func (ui *TrackerUI) refreshAll() {
 	allEnabled := ui.state.AllEnabled()
 
 	for i := 0; i < len(ui.cards); i++ {
-		ui.cards[i].mu.Lock()
-		ui.cards[i].isActive = (i == current)
-		ui.cards[i].isEnabled = allEnabled[i]
-		ui.cards[i].mu.Unlock()
-		ui.cards[i].Refresh()
+		card := ui.cards[i]
+		card.mu.Lock()
+		card.isActive = (card.index == current)
+		card.isEnabled = allEnabled[card.index]
+		card.mu.Unlock()
+		card.Refresh()
 	}
 }
 

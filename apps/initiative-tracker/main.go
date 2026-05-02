@@ -163,7 +163,7 @@ func main() {
 		start = 1 // Default to Leadership
 	}
 
-	state := NewTrackerState(start, numInitiatives)
+	state := NewTrackerState(start, 9) // Always 9 state entries for consistent initiative indexing
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
