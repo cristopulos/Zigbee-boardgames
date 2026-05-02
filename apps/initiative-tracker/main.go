@@ -145,10 +145,11 @@ func main() {
 	apiURL := flag.String("api", "http://localhost:3000", "button-hub API URL")
 	buttonFlag := flag.String("button", "", "comma-separated button IDs (optional)")
 	naalu := flag.Bool("naalu", false, "include Naalu initiative 0")
-	startFlag := flag.Int("start", 0, "starting initiative number")
+	startFlag := flag.Int("start", 1, "starting initiative number")
 	flag.Parse()
 
-	// Determine number of initiatives based on --naalu flag
+	// With --naalu: 9 cards (0-8), Without --naalu: 8 cards (1-8)
+	// Card data always contains all 9 entries, but UI only shows what we need
 	numInitiatives := defaultNumInitiatives
 	if *naalu {
 		numInitiatives = 9 // Include Naalu
@@ -156,8 +157,10 @@ func main() {
 	start := *startFlag
 
 	// Validate start against numInitiatives
+	// If Naalu excluded (8 cards), valid range is 1-8
+	// If Naalu included (9 cards), valid range is 0-8
 	if start < 0 || start >= numInitiatives {
-		start = 0
+		start = 1 // Default to Leadership
 	}
 
 	state := NewTrackerState(start, numInitiatives)

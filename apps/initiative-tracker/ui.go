@@ -122,19 +122,20 @@ func (r *initiativeCardRenderer) Refresh() {
 
 	bgColor, numColor, nameColor := colorsForState(index, isActive, isEnabled)
 
-	if r.bg.FillColor != bgColor {
-		r.bg.FillColor = bgColor
-	}
-	if r.numText.Color != numColor {
-		r.numText.Color = numColor
-	}
-	if r.nameText.Color != nameColor {
-		r.nameText.Color = nameColor
-	}
+	// Always set colors (no conditional) — ensures state is consistent
+	r.bg.FillColor = bgColor
+	r.numText.Color = numColor
+	r.nameText.Color = nameColor
 
 	r.numText.Text = cardNumber(index)
 	r.nameText.Text = cardName(index)
 
+	// Re-run layout so text sizes stay correct after resize or state change
+	if s := r.widget.Size(); s.Width > 0 && s.Height > 0 {
+		r.Layout(s)
+	}
+
+	// Always refresh all objects to ensure canvas updates
 	canvas.Refresh(r.bg)
 	canvas.Refresh(r.numText)
 	canvas.Refresh(r.nameText)
