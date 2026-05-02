@@ -155,6 +155,11 @@ func main() {
 	}
 	start := *startFlag
 
+	// Validate start against numInitiatives
+	if start < 0 || start >= numInitiatives {
+		start = 0
+	}
+
 	state := NewTrackerState(start, numInitiatives)
 
 	ctx, cancel := context.WithCancel(context.Background())

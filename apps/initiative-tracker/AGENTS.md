@@ -7,7 +7,7 @@ TI4 initiative tracker: 8 cards (1-8) by default, or 9 cards (0-8) with --naalu.
 ```bash
 cd button-hub/apps/initiative-tracker
 
-go test ./...           # 38 tests
+go test ./...           # 37 tests
 go build -o initiative-tracker .
 ./build.sh              # builds + checks X11/Wayland/OpenGL deps
 ```

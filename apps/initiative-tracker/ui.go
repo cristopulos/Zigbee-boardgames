@@ -174,17 +174,16 @@ var initiativeData = [numInitiatives]struct {
 }
 
 func cardName(index int) string {
-	names := [numInitiatives]string{
-		"Naalu", "Leadership", "Diplomacy", "Politics", "Construction",
-		"Trade", "Warfare", "Technology", "Imperial",
-	}
-	if index < 0 || index >= numInitiatives {
+	if index < 0 || index >= len(initiativeData) {
 		return ""
 	}
-	return names[index]
+	return initiativeData[index].name
 }
 
 func cardNumber(index int) string {
+	if index < 0 || index >= len(initiativeData) {
+		return ""
+	}
 	if index == 0 {
 		return "0"
 	}
