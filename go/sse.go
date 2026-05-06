@@ -22,12 +22,12 @@ type Client struct {
 }
 
 // NewClient creates a client for the given button-hub base URL.
+// No HTTP timeout is set — SSE streams are long-lived and timeouts would
+// kill healthy connections. Use ctx for cancellation instead.
 func NewClient(apiURL string) *Client {
 	return &Client{
 		apiURL: strings.TrimSuffix(apiURL, "/"),
-		client: &http.Client{
-			Timeout: 60 * time.Second,
-		},
+		client: &http.Client{},
 	}
 }
 
@@ -55,13 +55,52 @@ func (c *Client) Listen(ctx context.Context, buttonID string, handler func(Event
 	}
 
 	reader := bufio.NewReader(resp.Body)
-	var data bytes.Buffer
 
-	// Channels for async read results. Using a goroutine prevents blocking on
-	// dead connections — the read call returns immediately, and we detect timeouts
-	// via the select below.
+	// Channels for async read results. A single persistent goroutine (not
+	// one per iteration) pumps lines into lineChan so the select can wake on
+	// either new data OR the idle timer, without blocking on a dead connection.
 	lineChan := make(chan []byte, 1)
 	readErrChan := make(chan error, 1)
+
+	// Persistent read goroutine — spawned once, lives until the connection
+	// closes or the context is cancelled. Closing resp.Body (triggered by ctx
+	// cancellation) unblocks the in-flight ReadBytes.
+	// Non-blocking sends on lineChan and readErrChan prevent the goroutine
+	// from leaking if the main loop returns while it's trying to send.
+	go func() {
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				select {
+				case readErrChan <- err:
+				default:
+				}
+				return
+			}
+			select {
+			case lineChan <- line:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Body-close done channel: ensures the body-close goroutine exits when
+	// Listen returns (not just on ctx cancellation), preventing double-close
+	// with the defer and preventing goroutine accumulation across reconnects.
+	bodyCloseDone := make(chan struct{})
+	defer close(bodyCloseDone)
+
+	// Separate goroutine: close the body when the context is cancelled so
+	// the read goroutine unblocks promptly. Also exits when bodyCloseDone
+	// is closed to prevent leak on normal return.
+	go func() {
+		select {
+		case <-ctx.Done():
+			resp.Body.Close()
+		case <-bodyCloseDone:
+		}
+	}()
 
 	// 30-second idle timeout: if no data arrives within this window, the SSE
 	// connection is considered dead (e.g., network drop, server restart).
@@ -81,19 +120,10 @@ func (c *Client) Listen(ctx context.Context, buttonID string, handler func(Event
 		timer.Reset(30 * time.Second)
 	}
 
-	// Read loop: spawns a goroutine for each read operation. This allows the
-	// select to wake on either new data OR timeout, rather than blocking on
-	// a hung TCP connection. Comment/ping lines (": ..." prefix) are skipped.
+	// Main event loop: select waits for ctx cancellation, idle timeout,
+	// new lines from the read goroutine, or read errors.
+	var data bytes.Buffer
 	for {
-		go func() {
-			line, err := reader.ReadBytes('\n')
-			if err != nil {
-				readErrChan <- err
-			} else {
-				lineChan <- line
-			}
-		}()
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -117,7 +147,7 @@ func (c *Client) Listen(ctx context.Context, buttonID string, handler func(Event
 			}
 
 			if bytes.HasPrefix(line, []byte(":")) {
-				// Ignore comment/ping lines (keep-alive events)
+				// Ignore comment/ping lines (keep-alive events from server)
 				continue
 			}
 

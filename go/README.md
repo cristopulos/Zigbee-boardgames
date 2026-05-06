@@ -71,6 +71,8 @@ err := client.Listen(ctx, "kitchen_button", func(e gobutton.Event) {
 
 Both `Listen` and `client.Listen` implement connection monitoring:
 
+- **Single persistent read goroutine** — One goroutine reads SSE lines continuously for the lifetime of the connection. This avoids per-iteration goroutine leaks on timeout or cancellation.
+- **Body-close on cancellation** — A separate goroutine closes `resp.Body` when the context is cancelled, promptly unblocking the read goroutine.
 - **30-second idle timeout** — If no SSE data is received for 30 seconds (e.g., network drop, server restart), the stream returns an error. This prevents hung connections from blocking indefinitely.
 - **Automatic reconnection** (Listen only) — On disconnect, `Listen` retries with exponential backoff (1s → 2s → 4s ... up to 30s max) until the context is cancelled.
 - **Keep-alive support** — The SSE handler properly ignores comment/ping lines (`:` prefix) sent by servers as keep-alive heartbeats.
