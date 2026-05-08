@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Rust client library** (`crates/client/`): New `button-client` crate providing async Rust client for button-hub. Replaces the Go `go/` library for new Rust applications. Features: SSE stream handling via `tokio` + `reqwest`, 30-second idle timeout, automatic reconnection with exponential backoff. Reuses event types from `button_core`.
+
 ### Fixed
 
 - **SSE goroutine leak** (`go/sse.go`): Replaced per-iteration goroutine spawn with a single persistent read goroutine. Previously, when `ctx.Done()` or the idle timer fired, the blocked read goroutine was leaked — one per timeout/reconnect. Over extended periods this caused goroutine accumulation and apps stopping responding. Now a single goroutine reads continuously and a separate goroutine closes `resp.Body` on context cancellation. Non-blocking sends on `lineChan` and `readErrChan` prevent leaks if the main loop returns while the read goroutine is trying to send. A `bodyCloseDone` channel ensures the body-close goroutine exits on normal return, preventing double-close with the defer and further goroutine accumulation.
