@@ -7,11 +7,11 @@ A Rust application that bridges Zigbee2MQTT button events to async callbacks and
 ```
 [SNZB-01P ×N] --Zigbee--> [ZBDongle-P] --USB--> [Zigbee2MQTT]
                                                    --MQTT--> [Mosquitto :1883]
-                                                                --rumqttc--> [button-hub]
-                                                                                 --> [ButtonRegistry: callbacks]
-                                                                                 --> [REST API :3000]
-                                                                                 --> [Dashboard /dashboard/]
-                                                                                 --> [Go apps via SSE]
+                                                                  --rumqttc--> [button-hub]
+                                                                                   --> [ButtonRegistry: callbacks]
+                                                                                   --> [REST API :3000]
+                                                                                   --> [Dashboard /dashboard/]
+                                                                                   --> [Rust apps via SSE]
 ```
 
 ## Prerequisites
@@ -69,7 +69,27 @@ If you prefer manual control, follow the steps below.
    ```bash
    journalctl -u zigbee2mqtt -f
    ```
-7. Register the button in `src/main.rs` (for Rust callbacks) or use the Go library / `POST /buttons` API (for external apps).
+7. Register the button in `src/main.rs` (for Rust callbacks) or use the Rust client crate / `POST /buttons` API (for external apps).
+
+## Rust Client Library
+
+A Rust client library lives in `crates/client/`. New applications should use this instead of the Go library.
+
+```rust
+use button_client::Client;
+
+let client = Client::new("http://localhost:3000");
+client.listen("kitchen_button", |event| {
+    println!("Button pressed: {:?}", event.action);
+}).await?;
+```
+
+`Client::listen` automatically:
+1. Registers the button via `POST /buttons`
+2. Opens an SSE stream to `/api/events/stream`
+3. Calls your handler for every matching event
+4. Handles reconnection with exponential backoff
+5. Unregisters the button when the context is cancelled
 
 ## Running
 
@@ -188,52 +208,19 @@ registry.register(Button::new("my_button", |event| async move {
 }));
 ```
 
-### Go (external app)
+## Rust Apps
 
-A Go client library lives in `go/`.
+Two standalone Rust/egui apps connect to button-hub via SSE and provide game-automation UIs.
 
-```bash
-go get github.com/cristopulos/button-hub/go
-```
+### timer-switcher
 
-```go
-package main
+Displays configurable timers and cycles through them based on button presses or keyboard input. Source lives in `apps/timer-switcher-rs/`.
 
-import (
-    "context"
-    gobutton "github.com/cristopulos/button-hub/go"
-)
+#### Connection behavior
 
-func main() {
-    ctx := context.Background()
-    _ = gobutton.Listen(ctx, "http://localhost:3000", "kitchen_button", func(e gobutton.Event) {
-        println("Button pressed!", e.Action)
-    })
-}
-```
+timer-switcher connects to button-hub via SSE and automatically reconnects if the connection is lost. Timer state persists locally regardless of connection status.
 
-`gobutton.Listen` automatically:
-1. Registers the button via `POST /buttons`
-2. Opens an SSE stream to `/api/events/stream`
-3. Calls your handler for every matching event
-4. Reconnects with exponential backoff on disconnect
-5. Unregisters the button when the context is cancelled
-
-#### Reference CLI demo
-
-```bash
-go run ./go/cmd/demo --api http://localhost:3000 --button kitchen_button
-```
-
-## timer-switcher
-
-A Fyne-based GUI app that displays configurable timers and cycles through them based on button presses or keyboard input. Source lives in `apps/timer-switcher/`.
-
-### Connection behavior
-
-timer-switcher connects to button-hub via Server-Sent Events (SSE) and automatically reconnects if the connection is lost. If button-hub restarts or the network drops, it will retry with exponential backoff (1s → 2s → 4s ... up to 30s) until the connection is restored. Timer state persists locally regardless of connection status.
-
-### Features
+#### Features
 
 - Displays N configurable timers (minimum 2) in a horizontal row
 - One timer is active at a time, highlighted with a cyan accent
@@ -241,28 +228,26 @@ timer-switcher connects to button-hub via Server-Sent Events (SSE) and automatic
 - Timer text scales dynamically with window resize
 - Click any timer card to switch to it
 
-### Building
+#### Building and running
 
 ```bash
-cd apps/timer-switcher
-./build.sh
-# or: go build -o timer-switcher .
+cargo run -p timer-switcher --release -- --button snzb-01p-01 --timers "Player 1,Player 2,Player 3"
 ```
 
-### Usage
+#### Usage
 
 ```bash
 # Single button — cycles through 3 timers
-./timer-switcher --button kitchen_button
+cargo run -p timer-switcher -- --button kitchen_button
 
 # Multiple buttons with custom names
-./timer-switcher --button btn1,btn2,btn3 --timers "Player 1,Player 2,Player 3"
+cargo run -p timer-switcher -- --button btn1,btn2,btn3 --timers "Player 1,Player 2,Player 3"
 
 # With debug logging
-./timer-switcher --button snzb-01p-01 --debug
+cargo run -p timer-switcher -- --button snzb-01p-01 --debug
 ```
 
-### Flags
+#### Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -271,7 +256,7 @@ cd apps/timer-switcher
 | `--api` | `http://localhost:3000` | button-hub API base URL |
 | `--debug` | `false` | Enable verbose event logging |
 
-### Controls
+#### Controls
 
 **Keyboard:**
 
@@ -297,21 +282,73 @@ cd apps/timer-switcher
 
 **Paused state:** When paused, the active timer's time displays in amber and stops incrementing.
 
+### initiative-tracker
+
+Cycles through Twilight Imperium 4 strategy cards. Source lives in `apps/initiative-tracker-rs/`.
+
+#### Building and running
+
+```bash
+cargo run -p initiative-tracker --release -- --naalu
+```
+
+#### Usage
+
+```bash
+# Keyboard-only mode
+cargo run -p initiative-tracker --
+
+# With a button for cycling
+cargo run -p initiative-tracker -- --button snzb-01p-01
+
+# Include Naalu (index 0) and start at Diplomacy (index 2)
+cargo run -p initiative-tracker -- --naalu --start 2
+```
+
+#### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--api` | `http://localhost:3000` | button-hub API base URL |
+| `--button` | (optional) | Comma-separated button IDs |
+| `--naalu` | `false` | Include Naalu initiative (default: 8 cards, Naalu excluded) |
+| `--start` | `1` | Starting initiative number (0-8) |
+| `--debug` | `false` | Enable verbose event logging |
+
+#### Controls
+
+**Keyboard:**
+
+| Key | Action |
+|-----|--------|
+| `SPACE` / `→` / `↑` | Next initiative |
+| `←` / `↓` / `⌫` | Previous initiative |
+| `R` | Reset to starting initiative |
+| `0-8` | Toggle that card on/off |
+| `ESC` | Quit |
+
+**Remote button:**
+
+| Action | Effect |
+|--------|--------|
+| Single press | Next initiative |
+| Double press | Reset to starting initiative |
+
 ## Tests
 
 ### button-hub (Rust)
 ```bash
-cd button-hub
-cargo test
+cargo test --workspace
 ```
-**31 tests passing**
 
-### timer-switcher (Go)
+### Rust apps
 ```bash
-cd apps/timer-switcher
-go test ./...
+# timer-switcher
+cargo test -p timer-switcher
+
+# initiative-tracker
+cargo test -p initiative-tracker
 ```
-**23 tests passing**
 
 ## Event JSON Schema
 

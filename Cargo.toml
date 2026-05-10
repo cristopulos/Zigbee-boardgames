@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/mqtt", "crates/api", "crates/dashboard", "crates/client", "."]
+members = ["crates/core", "crates/mqtt", "crates/api", "crates/dashboard", "crates/client", "apps/timer-switcher-rs", "apps/initiative-tracker-rs", "."]
 resolver = "2"
 
 [package]
