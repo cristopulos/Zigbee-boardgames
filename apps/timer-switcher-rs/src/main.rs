@@ -11,11 +11,11 @@
 
 use clap::Parser;
 
-mod timer;
 mod app;
+mod timer;
 
-use timer::{TimerState, TimerCommand, execute, TIMER_STATE};
 use app::TimerSwitcherApp;
+use timer::{execute, TimerCommand, TimerState, TIMER_STATE};
 
 /// Parse comma-separated string into a Vec<String>.
 fn parse_ids(s: &str) -> Vec<String> {
@@ -26,7 +26,11 @@ fn parse_ids(s: &str) -> Vec<String> {
 }
 
 #[derive(Parser, Debug)]
-#[command(author, version, about = "Timer Switcher — cycles timers via Zigbee buttons")]
+#[command(
+    author,
+    version,
+    about = "Timer Switcher — cycles timers via Zigbee buttons"
+)]
 struct Args {
     /// button-hub API base URL
     #[arg(long, default_value = "http://localhost:3000")]
@@ -67,9 +71,18 @@ async fn main() -> anyhow::Result<()> {
 
     // Determine mapping mode
     let direct_map = button_ids.len() == timer_names.len();
-    let mode = if direct_map { "direct map (1:1)" } else { "cycle" };
+    let mode = if direct_map {
+        "direct map (1:1)"
+    } else {
+        "cycle"
+    };
 
-    println!("Timer Switcher started with {} timers, {} buttons, mode={}", timer_names.len(), button_ids.len(), mode);
+    println!(
+        "Timer Switcher started with {} timers, {} buttons, mode={}",
+        timer_names.len(),
+        button_ids.len(),
+        mode
+    );
     println!("Listening for buttons: {}", button_ids.join(", "));
     println!("Controls: SPACE = switch, ENTER = reset, P = pause, ESC = quit");
 
@@ -84,7 +97,10 @@ async fn main() -> anyhow::Result<()> {
 
         tokio::spawn(async move {
             if debug {
-                println!("[main] starting listener for button={} idx={}", button_id, idx);
+                println!(
+                    "[main] starting listener for button={} idx={}",
+                    button_id, idx
+                );
             }
 
             let client = button_client::Client::new(&api_url);
@@ -143,6 +159,12 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     }
+
+    // Background timer ticker so the timer advances even when the window is
+    // unfocused (egui/eframe pause `update()` on unfocused windows). The
+    // RAII guard stops and joins the thread on any exit path, including
+    // errors and panics.
+    let _timer_thread = timer::TimerThread::start();
 
     // Run the egui app
     let options = eframe::NativeOptions {

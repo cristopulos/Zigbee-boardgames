@@ -3,7 +3,7 @@
 use eframe::egui;
 use egui::{Color32, Widget};
 
-use crate::timer::{TIMER_STATE, tick};
+use crate::timer::TIMER_STATE;
 
 // Color palette (from Go version)
 const BG: Color32 = Color32::from_rgb(26, 26, 46);
@@ -34,11 +34,20 @@ impl Widget for TimerCard {
         );
 
         // Paint background + border
-        let fill_color = if self.is_active { ACTIVE_CARD } else { INACTIVE_CARD };
-        let border_color = if self.is_active { ACTIVE_BORDER } else { INACTIVE_BORDER };
+        let fill_color = if self.is_active {
+            ACTIVE_CARD
+        } else {
+            INACTIVE_CARD
+        };
+        let border_color = if self.is_active {
+            ACTIVE_BORDER
+        } else {
+            INACTIVE_BORDER
+        };
         let border_width = if self.is_active { 3.0 } else { 1.0 };
         ui.painter().rect_filled(rect, 12.0, fill_color);
-        ui.painter().rect_stroke(rect, 12.0, egui::Stroke::new(border_width, border_color));
+        ui.painter()
+            .rect_stroke(rect, 12.0, egui::Stroke::new(border_width, border_color));
 
         // Text padding within the card
         let inner = rect.shrink(10.0);
@@ -56,7 +65,11 @@ impl Widget for TimerCard {
         );
 
         // Time text — center of inner rect
-        let time_color = if self.is_active && self.paused { AMBER } else { WHITE };
+        let time_color = if self.is_active && self.paused {
+            AMBER
+        } else {
+            WHITE
+        };
         let time_size = (self.card_height * 0.28).clamp(14.0, 80.0);
         painter.text(
             inner.center(),
@@ -86,9 +99,6 @@ impl eframe::App for TimerSwitcherApp {
         // Request repaint frequently so button-press state changes are visible promptly
         ctx.request_repaint_after(std::time::Duration::from_millis(100));
 
-        // Tick the timer
-        tick();
-
         // Read current state
         let snap = {
             let state = TIMER_STATE.read();
@@ -114,7 +124,8 @@ impl eframe::App for TimerSwitcherApp {
             // Compute card dimensions — scale vertically to fill available space
             let available_width = ui.available_width();
             let spacing = 12.0_f32;
-            let card_width = (available_width - (num_cards as f32 - 1.0) * spacing) / num_cards as f32;
+            let card_width =
+                (available_width - (num_cards as f32 - 1.0) * spacing) / num_cards as f32;
             let hint_height = 20.0_f32;
             let card_height = (ui.available_height() - 32.0 - hint_height).max(80.0);
 
@@ -148,9 +159,7 @@ impl eframe::App for TimerSwitcherApp {
 
             // Bottom hint text
             ui.add_space(16.0);
-            ui.label(
-                "SPACE: Switch  |  ENTER: Reset  |  P: Pause  |  ESC: Quit"
-            );
+            ui.label("SPACE: Switch  |  ENTER: Reset  |  P: Pause  |  ESC: Quit");
         });
 
         // Handle keyboard input
