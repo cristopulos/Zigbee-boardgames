@@ -19,10 +19,10 @@ mod client;
 mod listen;
 mod registry;
 
+pub use button_core::Event;
 pub use client::Client;
 pub use listen::listen;
 pub use registry::{register, unregister};
-pub use button_core::Event;
 
 // Re-export ActionType for convenience
 pub use button_core::ActionType;

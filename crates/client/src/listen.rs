@@ -38,7 +38,11 @@ const MAX_BACKOFF: Duration = Duration::from_secs(30);
 ///     println!("{:?}: {:?}", event.button_id, event.action);
 /// }).await;
 /// ```
-pub async fn listen<F>(api_url: &str, button_id: &str, mut handler: F) -> Result<(), Box<dyn Error + Send + Sync>>
+pub async fn listen<F>(
+    api_url: &str,
+    button_id: &str,
+    mut handler: F,
+) -> Result<(), Box<dyn Error + Send + Sync>>
 where
     F: FnMut(Event),
 {
@@ -61,9 +65,7 @@ where
             Err(e) => {
                 eprintln!(
                     "[button-client] sse error for {}: {} (retry in {:?})",
-                    button_id,
-                    e,
-                    backoff
+                    button_id, e, backoff
                 );
             }
         }

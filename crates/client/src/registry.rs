@@ -10,11 +10,7 @@ pub async fn register(api_url: &str, button_id: &str) -> Result<(), Box<dyn Erro
     let body = serde_json::json!({ "button_id": button_id });
 
     let client = reqwest::Client::new();
-    let resp = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await?;
+    let resp = client.post(&url).json(&body).send().await?;
 
     if !resp.status().is_success() {
         let status = resp.status();
@@ -54,8 +50,14 @@ mod tests {
 
     #[test]
     fn test_trim_slash() {
-        assert_eq!(trim_slash("http://localhost:3000/"), "http://localhost:3000");
+        assert_eq!(
+            trim_slash("http://localhost:3000/"),
+            "http://localhost:3000"
+        );
         assert_eq!(trim_slash("http://localhost:3000"), "http://localhost:3000");
-        assert_eq!(trim_slash("http://localhost:3000//"), "http://localhost:3000");
+        assert_eq!(
+            trim_slash("http://localhost:3000//"),
+            "http://localhost:3000"
+        );
     }
 }

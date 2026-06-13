@@ -164,7 +164,10 @@ where
         }
     }
 
-    fn process_chunk(&mut self, chunk: bytes::Bytes) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
+    fn process_chunk(
+        &mut self,
+        chunk: bytes::Bytes,
+    ) -> Result<Option<Event>, Box<dyn Error + Send + Sync>> {
         for line in split_lines(&chunk) {
             let line_str = String::from_utf8_lossy(line).trim().to_string();
             if line_str.is_empty() {
@@ -264,8 +267,8 @@ mod tests {
 mod sse_tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
-    use tokio::net::TcpListener;
     use tokio::io::AsyncWriteExt;
+    use tokio::net::TcpListener;
 
     /// Helper: convert Event to SSE format string.
     fn event_to_sse(event: &serde_json::Value) -> String {
@@ -310,11 +313,14 @@ mod sse_tests {
             let listener = TcpListener::bind(&addr).await.unwrap();
             let (mut stream, _) = listener.accept().await.unwrap();
 
-            stream.write_all(
-                b"HTTP/1.1 200 OK\r\n\
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\n\
                   Content-Type: text/event-stream\r\n\
-                  Cache-Control: no-cache\r\n\r\n"
-            ).await.unwrap();
+                  Cache-Control: no-cache\r\n\r\n",
+                )
+                .await
+                .unwrap();
 
             for event in events {
                 stream.write_all(event.as_bytes()).await.unwrap();
@@ -366,11 +372,14 @@ mod sse_tests {
         let server = tokio::spawn(async move {
             let listener = TcpListener::bind(&addr).await.unwrap();
             let (mut stream, _) = listener.accept().await.unwrap();
-            stream.write_all(
-                b"HTTP/1.1 200 OK\r\n\
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\n\
                   Content-Type: text/event-stream\r\n\
-                  Cache-Control: no-cache\r\n\r\n"
-            ).await.unwrap();
+                  Cache-Control: no-cache\r\n\r\n",
+                )
+                .await
+                .unwrap();
             let evt = event_to_sse(&serde_json::json!({
                 "button_id": "other-btn",
                 "action": "Single",
@@ -410,15 +419,16 @@ mod sse_tests {
         let server = tokio::spawn(async move {
             let listener = TcpListener::bind(&addr).await.unwrap();
             let (mut stream, _) = listener.accept().await.unwrap();
-            stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n").await.unwrap();
+            stream
+                .write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
+                .await
+                .unwrap();
         });
 
         tokio::time::sleep(Duration::from_millis(20)).await;
 
         let client = crate::Client::new(&format!("http://{}", addr_for_client));
-        let result = client
-            .listen("any-btn", |_| {})
-            .await;
+        let result = client.listen("any-btn", |_| {}).await;
 
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
@@ -439,11 +449,14 @@ mod sse_tests {
         let server = tokio::spawn(async move {
             let listener = TcpListener::bind(&addr).await.unwrap();
             let (mut stream, _) = listener.accept().await.unwrap();
-            stream.write_all(
-                b"HTTP/1.1 200 OK\r\n\
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\n\
                   Content-Type: text/event-stream\r\n\
-                  Cache-Control: no-cache\r\n\r\n"
-            ).await.unwrap();
+                  Cache-Control: no-cache\r\n\r\n",
+                )
+                .await
+                .unwrap();
             let evt = event_to_sse(&serde_json::json!({
                 "button_id": "btn-A",
                 "action": "Single",
@@ -473,12 +486,20 @@ mod sse_tests {
 
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("timeout"), "expected timeout error, got: {}", err);
+        assert!(
+            err.contains("timeout"),
+            "expected timeout error, got: {}",
+            err
+        );
 
         // Should have received at least one event (the one sent before silence)
         // Note: if the connection closes before the handler processes it, might be 0
         let received_count = received.lock().unwrap().len();
-        assert!(received_count <= 1, "unexpected event count: {}", received_count);
+        assert!(
+            received_count <= 1,
+            "unexpected event count: {}",
+            received_count
+        );
 
         // Should have returned around 30 seconds (with some tolerance)
         assert!(
@@ -501,11 +522,14 @@ mod sse_tests {
         let server = tokio::spawn(async move {
             let listener = TcpListener::bind(&addr).await.unwrap();
             let (mut stream, _) = listener.accept().await.unwrap();
-            stream.write_all(
-                b"HTTP/1.1 200 OK\r\n\
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\n\
                   Content-Type: text/event-stream\r\n\
-                  Cache-Control: no-cache\r\n\r\n"
-            ).await.unwrap();
+                  Cache-Control: no-cache\r\n\r\n",
+                )
+                .await
+                .unwrap();
 
             // Valid event for btn-A
             let valid = event_to_sse(&serde_json::json!({
@@ -564,11 +588,14 @@ mod sse_tests {
         let server = tokio::spawn(async move {
             let listener = TcpListener::bind(&addr).await.unwrap();
             let (mut stream, _) = listener.accept().await.unwrap();
-            stream.write_all(
-                b"HTTP/1.1 200 OK\r\n\
+            stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\n\
                   Content-Type: text/event-stream\r\n\
-                  Cache-Control: no-cache\r\n\r\n"
-            ).await.unwrap();
+                  Cache-Control: no-cache\r\n\r\n",
+                )
+                .await
+                .unwrap();
 
             // Comment/ping line
             stream.write_all(b": keep-alive ping\n\n").await.unwrap();

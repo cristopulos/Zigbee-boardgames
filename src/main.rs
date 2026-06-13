@@ -20,9 +20,8 @@ async fn main() {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(1883u16);
-    let client_id = std::env::var("MQTT_CLIENT_ID").unwrap_or_else(|_| {
-        format!("button-hub-{}", std::process::id())
-    });
+    let client_id = std::env::var("MQTT_CLIENT_ID")
+        .unwrap_or_else(|_| format!("button-hub-{}", std::process::id()));
     let api_port = std::env::var("API_PORT")
         .ok()
         .and_then(|s| s.parse().ok())

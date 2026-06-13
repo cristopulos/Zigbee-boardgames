@@ -275,7 +275,10 @@ mod tests {
                     .method("POST")
                     .uri("/buttons")
                     .header("content-type", "application/json")
-                    .body(Body::from(format!(r#"{{"button_id":"{}"}}"#, long_button_id)))
+                    .body(Body::from(format!(
+                        r#"{{"button_id":"{}"}}"#,
+                        long_button_id
+                    )))
                     .unwrap(),
             )
             .await
@@ -298,7 +301,10 @@ mod tests {
                     .method("POST")
                     .uri("/buttons")
                     .header("content-type", "application/json")
-                    .body(Body::from(format!(r#"{{"button_id":"{}"}}"#, max_button_id)))
+                    .body(Body::from(format!(
+                        r#"{{"button_id":"{}"}}"#,
+                        max_button_id
+                    )))
                     .unwrap(),
             )
             .await

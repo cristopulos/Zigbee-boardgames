@@ -3,9 +3,9 @@
 //! The tracker maintains 9 entries (indices 0-8) always. When --naalu is not
 //! used, entry 0 (Naalu) is disabled, leaving 8 visible cards.
 
-use std::sync::Arc;
-use parking_lot::RwLock;
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 use eframe::egui;
 
@@ -20,15 +20,15 @@ pub const NUM_INITIATIVES: usize = 9;
 /// 0=Naalu, 1=Leadership, 2=Diplomacy, 3=Politics, 4=Construction,
 /// 5=Trade, 6=Warfare, 7=Technology, 8=Imperial
 pub const INITIATIVE_DATA: [(egui::Color32, &'static str); NUM_INITIATIVES] = [
-    (egui::Color32::from_rgb(0x00, 0xB4, 0xD8), "Naalu"),          // 0 - Teal
-    (egui::Color32::from_rgb(0xDF, 0x23, 0x22), "Leadership"),   // 1 - Red
-    (egui::Color32::from_rgb(0xED, 0x92, 0x37), "Diplomacy"),    // 2 - Orange
-    (egui::Color32::from_rgb(0xFA, 0xF0, 0x1D), "Politics"),     // 3 - Yellow
-    (egui::Color32::from_rgb(0x30, 0xAF, 0x60), "Construction"),  // 4 - Green
-    (egui::Color32::from_rgb(0x03, 0xA6, 0x91), "Trade"),         // 5 - Teal
-    (egui::Color32::from_rgb(0x1B, 0x8B, 0xCD), "Warfare"),      // 6 - Light Blue
-    (egui::Color32::from_rgb(0x1B, 0x45, 0x97), "Technology"),    // 7 - Dark Blue
-    (egui::Color32::from_rgb(0x89, 0x4A, 0xA5), "Imperial"),      // 8 - Purple
+    (egui::Color32::from_rgb(0x00, 0xB4, 0xD8), "Naalu"), // 0 - Teal
+    (egui::Color32::from_rgb(0xDF, 0x23, 0x22), "Leadership"), // 1 - Red
+    (egui::Color32::from_rgb(0xED, 0x92, 0x37), "Diplomacy"), // 2 - Orange
+    (egui::Color32::from_rgb(0xFA, 0xF0, 0x1D), "Politics"), // 3 - Yellow
+    (egui::Color32::from_rgb(0x30, 0xAF, 0x60), "Construction"), // 4 - Green
+    (egui::Color32::from_rgb(0x03, 0xA6, 0x91), "Trade"), // 5 - Teal
+    (egui::Color32::from_rgb(0x1B, 0x8B, 0xCD), "Warfare"), // 6 - Light Blue
+    (egui::Color32::from_rgb(0x1B, 0x45, 0x97), "Technology"), // 7 - Dark Blue
+    (egui::Color32::from_rgb(0x89, 0x4A, 0xA5), "Imperial"), // 8 - Purple
 ];
 
 // ---------------------------------------------------------------------------
@@ -36,9 +36,8 @@ pub const INITIATIVE_DATA: [(egui::Color32, &'static str); NUM_INITIATIVES] = [
 // ---------------------------------------------------------------------------
 
 /// Global tracker state — shared between tokio tasks and egui app.
-pub static TRACKER_STATE: Lazy<Arc<RwLock<TrackerState>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(TrackerState::default()))
-});
+pub static TRACKER_STATE: Lazy<Arc<RwLock<TrackerState>>> =
+    Lazy::new(|| Arc::new(RwLock::new(TrackerState::default())));
 
 /// Commands from the async event handler to the UI.
 #[derive(Debug, Clone)]
@@ -67,7 +66,11 @@ impl TrackerState {
         let enabled = [true; NUM_INITIATIVES];
         // Clamp start to valid range
         let start = if start < NUM_INITIATIVES { start } else { 0 };
-        Self { current: start, enabled, start }
+        Self {
+            current: start,
+            enabled,
+            start,
+        }
     }
 
     /// Returns the current active initiative index.
@@ -183,7 +186,11 @@ pub fn execute(cmd: TrackerCommand) {
 }
 
 /// Returns the color for a card based on its state.
-pub fn card_colors(index: usize, is_active: bool, is_enabled: bool) -> (egui::Color32, egui::Color32, egui::Color32) {
+pub fn card_colors(
+    index: usize,
+    is_active: bool,
+    is_enabled: bool,
+) -> (egui::Color32, egui::Color32, egui::Color32) {
     if !is_enabled {
         return (
             egui::Color32::from_rgb(0x33, 0x33, 0x33),
@@ -237,7 +244,10 @@ pub fn card_number(index: usize) -> String {
 
 /// Returns the card name for the given index.
 pub fn card_name(index: usize) -> &'static str {
-    INITIATIVE_DATA.get(index).map(|(_, name)| *name).unwrap_or("")
+    INITIATIVE_DATA
+        .get(index)
+        .map(|(_, name)| *name)
+        .unwrap_or("")
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +311,11 @@ mod tests {
             state.enabled[i] = false;
         }
         state.next();
-        assert_eq!(state.current(), 0, "current should not change when all disabled");
+        assert_eq!(
+            state.current(),
+            0,
+            "current should not change when all disabled"
+        );
     }
 
     #[test]
@@ -338,7 +352,11 @@ mod tests {
             state.enabled[i] = false;
         }
         state.prev();
-        assert_eq!(state.current(), 3, "current should not change when all disabled");
+        assert_eq!(
+            state.current(),
+            3,
+            "current should not change when all disabled"
+        );
     }
 
     #[test]
@@ -367,7 +385,10 @@ mod tests {
         state.toggle_enabled(3);
         assert!(!state.enabled(3), "card 3 should be disabled after toggle");
         state.toggle_enabled(3);
-        assert!(state.enabled(3), "card 3 should be re-enabled after second toggle");
+        assert!(
+            state.enabled(3),
+            "card 3 should be re-enabled after second toggle"
+        );
     }
 
     #[test]
@@ -375,7 +396,11 @@ mod tests {
         let mut state = TrackerState::new(2);
         assert_eq!(state.current(), 2);
         state.toggle_enabled(2);
-        assert_eq!(state.current(), 3, "current should advance to 3 after disabling 2");
+        assert_eq!(
+            state.current(),
+            3,
+            "current should advance to 3 after disabling 2"
+        );
     }
 
     #[test]
@@ -383,15 +408,23 @@ mod tests {
         let mut state = TrackerState::new(0);
         state.toggle_enabled(99);
         state.toggle_enabled(usize::MAX);
-        assert_eq!(state.current(), 0, "out of bounds toggle should not change current");
+        assert_eq!(
+            state.current(),
+            0,
+            "out of bounds toggle should not change current"
+        );
     }
 
     #[test]
     fn test_toggle_enabled_last_card_wraps() {
         let mut state = TrackerState::new(8);
         state.toggle_enabled(8); // Disable 8 (Imperial)
-        // Search starts at (8+1) % 9 = 0, so Naalu (0) is found first
-        assert_eq!(state.current(), 0, "current should advance to next enabled (Naalu)");
+                                 // Search starts at (8+1) % 9 = 0, so Naalu (0) is found first
+        assert_eq!(
+            state.current(),
+            0,
+            "current should advance to next enabled (Naalu)"
+        );
     }
 
     #[test]
@@ -408,12 +441,31 @@ mod tests {
 
     #[test]
     fn test_card_name() {
-        let names = ["Naalu", "Leadership", "Diplomacy", "Politics", "Construction",
-                    "Trade", "Warfare", "Technology", "Imperial"];
+        let names = [
+            "Naalu",
+            "Leadership",
+            "Diplomacy",
+            "Politics",
+            "Construction",
+            "Trade",
+            "Warfare",
+            "Technology",
+            "Imperial",
+        ];
         for (i, expected) in names.iter().enumerate() {
-            assert_eq!(card_name(i), *expected, "card_name({}) should be {}", i, expected);
+            assert_eq!(
+                card_name(i),
+                *expected,
+                "card_name({}) should be {}",
+                i,
+                expected
+            );
         }
-        assert_eq!(card_name(99), "", "out of bounds card_name should return empty");
+        assert_eq!(
+            card_name(99),
+            "",
+            "out of bounds card_name should return empty"
+        );
     }
 
     #[test]

@@ -17,11 +17,11 @@
 
 use clap::Parser;
 
-mod tracker;
 mod app;
+mod tracker;
 
-use tracker::{TrackerState, TrackerCommand, execute, TRACKER_STATE, NUM_INITIATIVES};
 use app::InitiativeTrackerApp;
+use tracker::{execute, TrackerCommand, TrackerState, NUM_INITIATIVES, TRACKER_STATE};
 
 /// Parse comma-separated string into a Vec<String>.
 fn parse_ids(s: &str) -> Vec<String> {
@@ -32,7 +32,11 @@ fn parse_ids(s: &str) -> Vec<String> {
 }
 
 #[derive(Parser, Debug)]
-#[command(author, version, about = "Initiative Tracker — cycles TI4 strategy cards via Zigbee buttons")]
+#[command(
+    author,
+    version,
+    about = "Initiative Tracker — cycles TI4 strategy cards via Zigbee buttons"
+)]
 struct Args {
     /// button-hub API base URL
     #[arg(long, default_value = "http://localhost:3000")]
@@ -63,7 +67,11 @@ async fn main() -> anyhow::Result<()> {
     let num_cards = if args.naalu { 9 } else { 8 };
 
     // Validate and clamp start
-    let start = if args.start < NUM_INITIATIVES { args.start } else { 1 };
+    let start = if args.start < NUM_INITIATIVES {
+        args.start
+    } else {
+        1
+    };
 
     // Initialize the shared tracker state
     {
@@ -76,7 +84,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Parse button IDs
-    let button_ids: Vec<String> = args.button.as_ref()
+    let button_ids: Vec<String> = args
+        .button
+        .as_ref()
         .map(|s| parse_ids(s))
         .filter(|v| !v.is_empty())
         .unwrap_or_default();
@@ -89,7 +99,10 @@ async fn main() -> anyhow::Result<()> {
         "multiple buttons"
     };
 
-    println!("Initiative Tracker started, {} initiatives, {}", num_cards, mode_str);
+    println!(
+        "Initiative Tracker started, {} initiatives, {}",
+        num_cards, mode_str
+    );
     if !button_ids.is_empty() {
         println!("Listening for buttons: {}", button_ids.join(", "));
     }
@@ -108,31 +121,36 @@ async fn main() -> anyhow::Result<()> {
             }
 
             let client = button_client::Client::new(&api_url);
-            let result = client.listen(&button_id, move |event| {
-                if debug {
-                    println!("[remote] received: button_id={} action={:?}", event.button_id, event.action);
-                }
+            let result = client
+                .listen(&button_id, move |event| {
+                    if debug {
+                        println!(
+                            "[remote] received: button_id={} action={:?}",
+                            event.button_id, event.action
+                        );
+                    }
 
-                match event.action {
-                    button_client::ActionType::Single => {
-                        if debug {
-                            println!("[remote] handling Single -> Next");
+                    match event.action {
+                        button_client::ActionType::Single => {
+                            if debug {
+                                println!("[remote] handling Single -> Next");
+                            }
+                            execute(TrackerCommand::Next);
                         }
-                        execute(TrackerCommand::Next);
-                    }
-                    button_client::ActionType::Double => {
-                        if debug {
-                            println!("[remote] handling Double -> Reset");
+                        button_client::ActionType::Double => {
+                            if debug {
+                                println!("[remote] handling Double -> Reset");
+                            }
+                            execute(TrackerCommand::Reset);
                         }
-                        execute(TrackerCommand::Reset);
-                    }
-                    _ => {
-                        if debug {
-                            println!("[remote] ignored: {:?}", event.action);
+                        _ => {
+                            if debug {
+                                println!("[remote] ignored: {:?}", event.action);
+                            }
                         }
                     }
-                }
-            }).await;
+                })
+                .await;
 
             if debug {
                 match result {

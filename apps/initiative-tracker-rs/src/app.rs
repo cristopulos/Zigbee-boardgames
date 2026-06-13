@@ -1,7 +1,9 @@
 //! Initiative Tracker — egui App rendering strategy card grid.
 
+use crate::tracker::{
+    self, card_colors, card_number, clamp, TrackerSnapshot, INITIATIVE_DATA, TRACKER_STATE,
+};
 use eframe::egui;
-use crate::tracker::{self, TRACKER_STATE, INITIATIVE_DATA, card_colors, card_number, clamp, TrackerSnapshot};
 
 const BG: egui::Color32 = egui::Color32::from_rgb(26, 26, 46);
 const GREY: egui::Color32 = egui::Color32::from_rgb(136, 136, 136);
@@ -20,7 +22,11 @@ pub struct InitiativeTrackerApp {
 impl InitiativeTrackerApp {
     pub fn new(_cc: &eframe::CreationContext<'_>, num_cards: usize) -> Self {
         let offset = if num_cards == 8 { 1 } else { 0 };
-        Self { num_cards, offset, quit_requested: false }
+        Self {
+            num_cards,
+            offset,
+            quit_requested: false,
+        }
     }
 
     /// Returns which card indices to show (0..num_cards mapped to real indices).
@@ -56,7 +62,8 @@ impl eframe::App for InitiativeTrackerApp {
             // Compute card dimensions — scale vertically to fill available space
             let indices = self.show_indices();
             let spacing = 8.0_f32;
-            let card_width = (ui.available_width() - (self.num_cards as f32 - 1.0) * spacing) / self.num_cards as f32;
+            let card_width = (ui.available_width() - (self.num_cards as f32 - 1.0) * spacing)
+                / self.num_cards as f32;
             let hint_height = 20.0_f32;
             let card_height = (ui.available_height() - 28.0 - hint_height).max(80.0);
 
@@ -78,7 +85,11 @@ impl eframe::App for InitiativeTrackerApp {
                     // Border: 3px white for active, 1px grey for inactive
                     let border_color = if is_active { WHITE } else { GREY };
                     let border_width = if is_active { 3.0 } else { 1.0 };
-                    ui.painter().rect_stroke(rect, 12.0, egui::Stroke::new(border_width, border_color));
+                    ui.painter().rect_stroke(
+                        rect,
+                        12.0,
+                        egui::Stroke::new(border_width, border_color),
+                    );
 
                     // Draw text inside card
                     let inner = rect.shrink(8.0);
@@ -89,7 +100,8 @@ impl eframe::App for InitiativeTrackerApp {
 
                     // Card number (large, centered)
                     let num_size = clamp(min_dim * 0.45);
-                    let num_pos = egui::Pos2::new(inner.center().x, inner.center().y + num_size * 0.3);
+                    let num_pos =
+                        egui::Pos2::new(inner.center().x, inner.center().y + num_size * 0.3);
                     painter.text(
                         num_pos,
                         egui::Align2::CENTER_CENTER,
@@ -120,9 +132,11 @@ impl eframe::App for InitiativeTrackerApp {
             // Hint text at bottom
             ui.add_space(12.0);
             ui.label(
-                egui::RichText::new("SPACE/→/↑: Next  |  ←/↓/⌫: Prev  |  R: Reset  |  0-8: Toggle  |  ESC: Quit")
-                    .small()
-                    .color(GREY),
+                egui::RichText::new(
+                    "SPACE/→/↑: Next  |  ←/↓/⌫: Prev  |  R: Reset  |  0-8: Toggle  |  ESC: Quit",
+                )
+                .small()
+                .color(GREY),
             );
         });
 
@@ -143,7 +157,10 @@ impl eframe::App for InitiativeTrackerApp {
                     egui::Key::Space | egui::Key::ArrowRight | egui::Key::ArrowUp => {
                         tracker::execute(tracker::TrackerCommand::Next);
                     }
-                    egui::Key::ArrowLeft | egui::Key::ArrowDown | egui::Key::Backspace | egui::Key::Delete => {
+                    egui::Key::ArrowLeft
+                    | egui::Key::ArrowDown
+                    | egui::Key::Backspace
+                    | egui::Key::Delete => {
                         tracker::execute(tracker::TrackerCommand::Prev);
                     }
                     egui::Key::R => {
